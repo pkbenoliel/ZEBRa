@@ -38,3 +38,6 @@ vignettes/*.pdf
 
 # R Environment Variables
 .Renviron
+
+# Invisible files generated on Mac whenever Finder is used.
+*.DS_Store
