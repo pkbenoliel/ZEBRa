@@ -93,7 +93,7 @@ gtfs_lengthr <- function(gtfs.obj, skip = 0, batch.size = 50, location = "./GTFS
       }
 
       if(logs) {
-        dir.create(file.path(location, "Logs"), recursive = TRUE)
+        dir.create(file.path(location, "Logs"), recursive = TRUE, showWarnings = FALSE)
         saveRDS(gmaps.results, file = file.path(location, paste(Sys.Date(), agency, " Interim.RDS", sep = "")))
         batch.log[i, "Check"] <- 1
         batch.log[i, "Time"] <- Sys.time()
@@ -108,7 +108,7 @@ gtfs_lengthr <- function(gtfs.obj, skip = 0, batch.size = 50, location = "./GTFS
   stop.times <- stop.times %>% left_join(gmaps.results) %>% select(-c(destination, origin, refid, refcoords, or, de)) %>%
     dplyr::rename(DistM = result.loop.Distance.Distance, TimeS = Time)
 
-  gtfs.obj$stop_times_df <- stop.times
+  gtfs.obj$stop_times <- stop.times
   rm(gmaps.results)
   return(gtfs.obj)
 }
@@ -133,8 +133,8 @@ lengthr_local <- function(gtfs.obj, local.file = "./GTFS Local Data/GMapsResults
     stop("Local gtfs_lengthr output not found. Please check location or run `gtfs_lengthr()`.")
   }
   gmapsresults <- readRDS(file.to.read)
-  stops <- gtfs.obj$stops_df
-  stop.times <- gtfs.obj$stop_times_df
+  stops <- gtfs.obj$stops
+  stop.times <- gtfs.obj$stop_times
   stop.times <- stop.times %>% inner_join(select(stops, stop_id, stop_lat, stop_lon))
   stop.times <- stop.times %>%
     mutate(destination = paste(stop_lat, stop_lon, sep = "+"),
@@ -146,6 +146,104 @@ lengthr_local <- function(gtfs.obj, local.file = "./GTFS Local Data/GMapsResults
   stop.times <- stop.times %>% left_join(gmapsresults) %>%
     select(-c(destination, origin, refid, refcoords, or, de)) %>%
     rename(DistM = result.loop.Distance.Distance, TimeS = Time)
-  gtfs.obj$stop_times_df <- stop.times
+  gtfs.obj$stop_times <- stop.times
   return(gtfs.obj)
+}
+
+#' GTFS Framer
+#'
+#' This function takes a GTFS Object that has been downloaded with gtfs_loader and treated with gtfs_lengthr to disentangles the trips, routes, and service IDs into a single data.frame.
+#'
+#' @param gtfs.obj a gtfs object that has been treated with gtfs_lengthr
+#'
+#' @return
+#' @export
+#'
+#' @examples
+#'
+gtfs_framer <- function(gtfs.obj) {
+  routes <- gtfs.obj$routes
+  stops <- gtfs.obj$stops
+  trips <- gtfs.obj$trips
+  agency <- gtfs.obj$agency
+  stop.times <- gtfs.obj$stop_times
+  calendar <- gtfs.obj$calendar
+  calendar.dates <- gtfs.obj$calendar_dates
+
+  stop.times$departure_time <- as.POSIXct(sapply(stop.times$departure_time, dater, USE.NAMES = FALSE), origin = "1970-01-01")
+  stop.times$arrival_time <- as.POSIXct(sapply(stop.times$arrival_time, dater, USE.NAMES = FALSE), origin = "1970-01-01")
+
+  if(!("shape_dist_traveled" %in% names(stop.times))) { stop.times$shape_dist_traveled <- NA }
+
+  trip.info <- select(stop.times, trip_id, arrival_time, departure_time, shape_dist_traveled, TimeS, DistM) %>%
+    group_by(trip_id) %>%
+    summarise(start.time = min(arrival_time,na.rm=T), end.time = max(departure_time,na.rm=T), num.stops = n(),
+              dist.GTFS = max(shape_dist_traveled, na.rm=T), dist.gmaps = sum(DistM, na.rm = TRUE), time.gmaps = sum(TimeS, na.rm = TRUE)) %>%
+    mutate(duration = end.time - start.time)
+
+  route.info <- select(routes, route_short_name, route_id) %>% inner_join(select(trips, route_id, service_id, trip_id)) %>%
+    inner_join(select(trip.info, trip_id, start.time, end.time, num.stops, dist.GTFS, duration, dist.gmaps, time.gmaps)) %>%
+    inner_join(select(routes, route_id, route_short_name, route_long_name)) %>%
+    mutate(duration = duration/60, dur.gmaps = time.gmaps/60,
+           start.time = as.POSIXct(start.time, origin="1970-01-01"), end.time = as.POSIXct(end.time, origin="1970-01-01"))
+
+  return(route.info)
+}
+
+#' Year Tabler
+#'
+#' This function builds a base calendar of the year for use in constructing the timetable of a transit network.
+#'
+#' @param gtfs.obj a gtfs object treated with gtfs_lengthr
+#'
+#' @return data.frame, a base calendar to use as an input toe day_tabler.
+#' @export
+#'
+#' @examples
+#'
+year_tabler <- function(gtfs.obj) {
+  gtfs.cal <- gtfs.obj$calendar
+
+  cal.base <- data.frame("Days" = 1:365, "Wkdy" = rep_len(c("monday","tuesday","wednesday","thursday","friday","saturday","sunday"),365))
+
+  services <- gtfs.cal$service_id
+
+  gtfs.cal$start.lubridate <- lubridate::ymd(gtfs.cal$start_date)
+  gtfs.cal$end.lubridate <- lubridate::ymd(gtfs.cal$end_date)
+
+  today <- Sys.Date()
+  day.one <- paste(as.character(lubridate::year(today)), "0101", sep = "")
+  day.last <- paste(as.character(lubridate::year(today)), "1231", sep = "")
+
+  gtfs.cal$start_date[gtfs.cal$start.lubridate <= min(gtfs.cal$start.lubridate) + lubridate::days(7)] <- day.one
+  gtfs.cal$start_date[as.numeric(gtfs.cal$start_date) < as.numeric(day.one)] <- day.one
+  gtfs.cal$end_date[gtfs.cal$end.lubridate >= max(gtfs.cal$end.lubridate)-lubridate::days(7)] <- day.last
+  gtfs.cal$end_date[as.numeric(gtfs.cal$end_date) > as.numeric(day.last)] <- day.last
+
+  for(i in 1:length(services)) {
+    serv.start <- lubridate::yday(as.Date(gtfs.cal$start_date[i], format = "%Y%m%d"))
+    serv.end <- lubridate::yday(as.Date(gtfs.cal$end_date[i],format = "%Y%m%d"))
+    for(j in serv.start:serv.end){
+      cal.base[j, paste(services[i])] <- gtfs.cal[i, paste(cal.base$Wkdy[j])]
+    }
+  }
+  #handle exceptions as noted in calendar_dates
+  if(exists("gtfs.obj$calendar_dates")) {
+    exceptions <- gtfs.obj$calendar_dates
+
+    if(!is.null(exceptions) & nrow(exceptions)>=1) {
+      exceptions$yday <- lubridate::yday(as.Date(exceptions$date, format = "%Y%m%d"))
+      for(i in 1:nrow(exceptions)) {
+        #exception type 1 adds service where there ordinarily wouldn't be service (special events, etc)
+        if(exceptions$exception_type[i] == 1) {
+          cal.base[cal.base$Days == exceptions$yday[i], paste(exceptions$service_id[i])] <- 1
+        }
+        #exception type 2 removes service where there ordinarily would be service (holidays, etc)
+        if(exception$exception_type[i] == 2) {
+          cal.base[cal.base$Days == exceptions$yday[i], paste(exceptions$service_id[i])] <- 0
+        }
+      }
+    }
+  }
+  return(cal.base)
 }
