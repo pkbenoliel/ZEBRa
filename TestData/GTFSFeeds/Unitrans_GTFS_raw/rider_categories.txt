@@ -1,0 +1,5 @@
+rider_category_id,rider_category_name,min_age,max_age,eligibility_url
+Undergraduate,UCD Undergraduate Student,,,https://unitrans.ucdavis.edu/fares/passes/
+Senior,Seniors 60 and Older,60,,https://unitrans.ucdavis.edu/fares/passes/
+Discount,Customers with Disabilities,,,https://unitrans.ucdavis.edu/fares/passes/
+Youth,Youth 18 and Under,,18,https://unitrans.ucdavis.edu/fares/passes/

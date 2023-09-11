@@ -44,3 +44,8 @@ vignettes/*.pdf
 
 # Local files created for testing purposes
 /GTFS\ Local\ Data/*
+/Energy\ Tables/*
+/Results/*
+
+#Generated ZEBRa_Lite (these will be generated using R in the future)
+ZEBRa_Lite.xlsx

@@ -50,3 +50,18 @@ dater <- function(time) {
   }
   return(time.out)
 }
+
+
+#' Generate a date for January 1 of the current year
+#'
+#' @return Date, a date for January 1st of the current year
+#' @export
+#'
+#' @examples
+#'
+jan_first <- function() {
+  this.year <- lubridate::year(Sys.Date())
+  date.char <- paste(as.character(this.year), "-01-01", sep = "")
+  date.out <- as.Date(date.char)
+  return(date.out)
+}

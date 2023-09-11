@@ -1,0 +1,2 @@
+feed_publisher_name,feed_publisher_url,feed_lang,feed_start_date,feed_end_date,feed_version,feed_contact_email,feed_contact_url
+Unitrans,http://unitrans.ucdavis.edu,en,20230628,20230926,SS1_SS2_2023_V1,jjflynn@ucdavis.edu,http://unitrans.ucdavis.edu

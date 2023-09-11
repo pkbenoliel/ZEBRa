@@ -1,0 +1,10 @@
+fare_product_id,fare_product_name,rider_category_id,fare_container_id,bundle_amount,duration_start,duration_amount,duration_unit,duration_type,offset_amount,offset_unit,service_id,timeframe_id,timeframe_type,cap_required,amount,min_amount,max_amount,currency
+10-ride,10-Ride Ticket,,,10,,,,,,,,,,,7.5,,,USD
+monthly,Monthly Pass,,,,,1,5,1,,,,,,,30,,,USD
+quarterly,Quarterly Pass,,,,,3,5,1,,,,,,,77,,,USD
+annual,Annual Pass,,,,,1,6,1,,,,,,,216,,,USD
+free,Free Fare,Undergraduate,,,,,,,,,,,,,0,,,USD
+free,Free Fare,Senior,,,,,,,,,,,,,0,,,USD
+free,Free Fare,Discount,,,,,,,,,,,,,0,,,USD
+free,Free Fare,Youth,,,,,,,,,,,,,0,,,USD
+single-ride,Single Ride,,,,,,,,,,,,,,1.25,,,USD
