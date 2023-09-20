@@ -6,6 +6,9 @@ library(tidyverse)
 library(dplyr)
 library(ggplot2)
 library(purrr)
+library(DT)
+library(reshape2)
+library(magrittr)
 
 ## ----------------------|
 ## UI CODE               |
@@ -15,15 +18,16 @@ ui <- fluidPage(
   titlePanel("ZEBRa-Lite"),
   tabsetPanel(
     tabPanel("Control Panel",
-             fileInput("gtfsObj", "GTFS Feed", buttonLabel = "Upload Feed"),
+             fileInput("gtfsFile", "GTFS Feed", buttonLabel = "Upload Feed"),
+             actionButton("goButton", "Calculate")
     ),
     tabPanel("Results",
              sidebarLayout(
                sidebarPanel(
-
+                 tableOutput("stopsList")
                ),
                mainPanel(
-                 plotOutput("outputMap")
+                 leafletOutput("outputMap")
                )
              )
     ),
@@ -79,15 +83,11 @@ server <- function(input, output, session) {
     if(input$energySource == "upload") {
       fileInput("energyTable", "Upload Energy Table", accept = ".csv")
     } else if(input$energySource == "generate") {
-      textInput("gmapsKey", "Please enter a Google Maps API key:", placeholder = "Insert key here...")
+      actionButton("Calculate")
     } else {
 
     }
   })
-
-  # output$busNotice <- renderText ({
-  #   paste0("You indicated that ", input$buses, " bus types would be used.")
-  # })
 
   busDefaultLabels <- reactive(paste0("Label", seq_len(input$buses)))
 
@@ -111,7 +111,7 @@ server <- function(input, output, session) {
   })
 
   observeEvent(input$delRowBut, {
-    req(nrow(virtBusTable$data) > 1 && nrow(virtBusTable$data) <= input$delRowSel)
+    req(nrow(virtBusTable$data) > 1)
     virtBusTable$data <- deleteRow(virtBusTable$data, input$delRowSel)
   })
 
@@ -123,7 +123,34 @@ server <- function(input, output, session) {
     DT::datatable(virtBusTable$data, editable = TRUE, rownames = FALSE)
   })
 
-  output$testOut <- renderText(paste0("The name of the bus is ", virtBusTable$data$Label[1]))
+  cand.map <- reactiveValues(data = {
+    NULL
+  })
+  cand.table <- reactiveValues(data = {
+    NULL
+  })
+
+  observeEvent(input$goButton, {
+    req(input$gtfsFile)
+    gtfsObj <- tidytransit::read_gtfs(input$gtfsFile$datapath)
+    cand.locs.tmp <- cand_loc_searcher(gtfsObj, verbose = FALSE, include.legend = FALSE, include.depots = FALSE)
+    cand.map$data <- cand.locs.tmp$map
+    cand.table$data <- cand.locs.tmp$stops_table
+    showNotification("Complete!")
+  })
+
+  output$outputMap <- renderLeaflet({
+    req(!is.null(cand.map$data))
+    cand.map$data
+  })
+
+  output$stopsList <- renderDT({
+    req(!is.null(cand.table$data))
+    DT::datatable(cand.table$data %>%
+                    group_by(group) %>%
+                    select(stop_id, occ, label, group) %>%
+                    rename("StopID" = stop_id, "TimesStopped" = occ, "StopLabel" = label, "ClusterNumber" = group))
+  })
 }
 
 shinyApp(ui, server)
