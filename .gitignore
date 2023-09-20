@@ -42,6 +42,9 @@ vignettes/*.pdf
 # Invisible files generated on Mac whenever Finder is used.
 *.DS_Store
 
+# Local "scratchpad" for testing
+scratchpad.R
+
 # Local files created for testing purposes
 /GTFS\ Local\ Data/*
 /Energy\ Tables/*
