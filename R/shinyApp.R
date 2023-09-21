@@ -27,7 +27,7 @@ ui <- fluidPage(
                  tableOutput("stopsList")
                ),
                mainPanel(
-                 leafletOutput("outputMap")
+                 leafletOutput("outputMap", width = "400px")
                )
              )
     ),
@@ -83,7 +83,7 @@ server <- function(input, output, session) {
     if(input$energySource == "upload") {
       fileInput("energyTable", "Upload Energy Table", accept = ".csv")
     } else if(input$energySource == "generate") {
-      actionButton("Calculate")
+      actionButton("energyGo", "Calculate")
     } else {
 
     }
@@ -137,19 +137,19 @@ server <- function(input, output, session) {
     cand.map$data <- cand.locs.tmp$map
     cand.table$data <- cand.locs.tmp$stops_table
     showNotification("Complete!")
+    browser()
   })
 
   output$outputMap <- renderLeaflet({
-    req(!is.null(cand.map$data))
     cand.map$data
   })
 
   output$stopsList <- renderDT({
-    req(!is.null(cand.table$data))
-    DT::datatable(cand.table$data %>%
-                    group_by(group) %>%
-                    select(stop_id, occ, label, group) %>%
-                    rename("StopID" = stop_id, "TimesStopped" = occ, "StopLabel" = label, "ClusterNumber" = group))
+#    req(!is.null(cand.table$data))
+    DT::datatable(cand.table$data) #%>%
+                    # group_by(group) %>%
+                    # select(stop_id, occ, label, group) %>%
+                    # rename("StopID" = stop_id, "TimesStopped" = occ, "StopLabel" = label, "ClusterNumber" = group))
   })
 }
 
