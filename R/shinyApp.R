@@ -17,19 +17,14 @@ library(magrittr)
 ui <- fluidPage(
   titlePanel("ZEBRa-Lite"),
   tabsetPanel(
-    tabPanel("Control Panel",
-             fileInput("gtfsFile", "GTFS Feed", buttonLabel = "Upload Feed"),
-             actionButton("goButton", "Calculate")
-    ),
     tabPanel("Results",
-             sidebarLayout(
-               sidebarPanel(
-                 tableOutput("stopsList")
-               ),
-               mainPanel(
-                 leafletOutput("outputMap", width = "400px")
-               )
-             )
+             column(4,
+                    fileInput("gtfsFile", "GTFS Feed", buttonLabel = "Upload Feed"),
+                    actionButton("goButton", "Calculate")
+                    ),
+             column(8,
+                    leafletOutput("outputMap")
+                    )
     ),
     tabPanel("Details"
 
@@ -46,7 +41,8 @@ ui <- fluidPage(
                )
              )
     ),
-    tabPanel("Charger Parameters"
+    tabPanel("Charger Parameters",
+
 
     ),
     tabPanel("Energy Table",
@@ -137,19 +133,17 @@ server <- function(input, output, session) {
     cand.map$data <- cand.locs.tmp$map
     cand.table$data <- cand.locs.tmp$stops_table
     showNotification("Complete!")
-    browser()
   })
 
   output$outputMap <- renderLeaflet({
     cand.map$data
   })
 
-  output$stopsList <- renderDT({
-#    req(!is.null(cand.table$data))
-    DT::datatable(cand.table$data) #%>%
-                    # group_by(group) %>%
-                    # select(stop_id, occ, label, group) %>%
-                    # rename("StopID" = stop_id, "TimesStopped" = occ, "StopLabel" = label, "ClusterNumber" = group))
+  output$stopsList <- renderTable({
+    req(!is.null(cand.table$data))
+    tibble(cand.table$data) %>%
+                     select(stop_id, occ, label, group) %>%
+                     rename("StopID" = stop_id, "TimesStopped" = occ, "StopLabel" = label, "ClusterNumber" = group)
   })
 }
 
