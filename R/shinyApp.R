@@ -20,14 +20,21 @@ ui <- fluidPage(
   titlePanel("ZEBRa-Lite"),
   tabsetPanel(
     tabPanel("Dashboard",
-             column(4,
+             column(6,
                     fileInput("gtfsFile", "GTFS Feed", buttonLabel = "Upload Feed"),
+                    numericInput("oppChargers", "How many opportunity chargers do you want to use?", value = 0, min = 0),
                     actionButton("goButton", "Calculate"),
+                    ),
+             column(6,
+
                     radioButtons("candLocSpec", "What do you want to base candidate location fitness off of?",
                                  c("Serving the most vehicles and routes" = "mode1",
                                    "Serving the highest mileage routes" = "mode2",
-                                   "Serving the most frequently run routes" = "mode3")),
-                    textOutput("testText")
+                                   "Serving the most frequently run routes" = "mode3"))
+                    )
+    ),
+    tabPanel("Results",
+             column(4
                     ),
              column(8,
                     leafletOutput("outputMap")
@@ -67,7 +74,6 @@ ui <- fluidPage(
              uiOutput("energyDyn"),
              uiOutput("energyDyn2")
     ),
-<<<<<<< HEAD
     tabPanel("Timetable Information",
              radioButtons("timeTableSrc", "How do you want to read the route time table?",
                           c("Read from GTFS (Recommended, only if the GTFS feed is validated)" = "gtfs",
@@ -75,8 +81,6 @@ ui <- fluidPage(
              uiOutput("routeButtonPlace"),
              uiOutput("timeTablePlace")
     ),
-=======
->>>>>>> 1b77d2f8e3ba69c5bdd02f0cccebd4e5c473e7ad
     tabPanel("Candidate Locations",
              HTML("<I>Functionality will be added in the future to manually include or exclude stops from being candidates for opportunity charging. Stay tuned!</I>")
     )
@@ -109,7 +113,6 @@ server <- function(input, output, session) {
     }
   })
 
-<<<<<<< HEAD
   output$routeButtonPlace <- renderUI({
     if(input$timeTableSrc == "manual") {
       actionButton("readRoutes", "Read Routes")
@@ -126,8 +129,6 @@ server <- function(input, output, session) {
     }
   })
 
-=======
->>>>>>> 1b77d2f8e3ba69c5bdd02f0cccebd4e5c473e7ad
   virtBusTable <- reactiveValues(data = {
     data.frame("Label" = "Placeholder",
                "Cost" = 0,
@@ -140,7 +141,6 @@ server <- function(input, output, session) {
                "kWhPerMile" = 0)
   })
 
-<<<<<<< HEAD
   virtTimeTable <- reactiveValues(data = {
     data.frame("Route" = character(),
                "HeadwayMins" = numeric(),
@@ -156,18 +156,12 @@ server <- function(input, output, session) {
     virtTimeTable$data[i,j] <- k
   })
 
-=======
->>>>>>> 1b77d2f8e3ba69c5bdd02f0cccebd4e5c473e7ad
   observeEvent(input$energySimplified_cell_edit, {
     info <- input$energySimplified_cell_edit
     i <- as.numeric(info$row)
     j <- as.numeric(info$col)+1
     k <- as.numeric(info$value)
-<<<<<<< HEAD
     virtEnergyChoices$data[i,j] <- k
-=======
-    virtEnergyChoices[i,j] <- k
->>>>>>> 1b77d2f8e3ba69c5bdd02f0cccebd4e5c473e7ad
   })
 
   observeEvent(input$busTable_cell_edit, {
@@ -186,11 +180,7 @@ server <- function(input, output, session) {
           virtEnergyChoices$data <- rbind(virtEnergyChoices$data, junk)
         }
       }
-<<<<<<< HEAD
       virtEnergyChoices$data[i,1] = k
-=======
-      virtEnergyChoices[i,1] = k
->>>>>>> 1b77d2f8e3ba69c5bdd02f0cccebd4e5c473e7ad
     } else {
       k = as.numeric(info$value)
     }
@@ -200,14 +190,16 @@ server <- function(input, output, session) {
   observeEvent(input$delRowBut, {
     req(nrow(virtBusTable$data) > 1)
     virtBusTable$data <- deleteRow(virtBusTable$data, input$delRowSel)
+    virtEnergyChoices$data <- deleteRow(virtEnergyChoices$data, input$delRowSel)
   })
 
   observeEvent(input$addRow, {
     virtBusTable$data <- addNewRow(virtBusTable$data)
+    virtEnergyChoices$data <- addNewRow(virtEnergyChoices$data)
   })
 
   output$energySimplified <- renderDT({
-    DT::datatable(virtEnergyChoices$data, editable = list(target = "row", disable = list(columns = 0)), rownames = FALSE)
+    DT::datatable(virtEnergyChoices$data, editable = list(target = "cell", disable = list(columns = 0)), rownames = FALSE)
   })
 
   output$busTable <- renderDT({
@@ -247,8 +239,7 @@ server <- function(input, output, session) {
   })
 
   output$timeTable <- renderDT({
-    #req(input$gtfsFile, nrow(virtTimeTable$data) > 0)
-    DT::datatable(virtTimeTable$data, editable = list(target = "row", disable = list(columns = 0)), rownames = FALSE)
+    DT::datatable(virtTimeTable$data, editable = list(target = "cell", disable = list(columns = 0)), rownames = FALSE)
   })
 
   output$stopsList <- renderTable({
@@ -257,10 +248,7 @@ server <- function(input, output, session) {
                      select(stop_id, occ, label, group) %>%
                      rename("StopID" = stop_id, "TimesStopped" = occ, "StopLabel" = label, "ClusterNumber" = group)
   })
-
-  output$testText <- renderText({
-    paste0("Energy on test is ", virtEnergyChoices$data$kWhPerMile[1])
-  })
 }
 
 shinyApp(ui, server)
+

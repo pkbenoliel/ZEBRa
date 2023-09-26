@@ -3,7 +3,7 @@ addNewRow <- function(data) {
     new.cell <- switch(class(data[1,i]),
                        "numeric" = 0,
                        "character" = "",
-                       NA
+                       NULL
     )
     if(i == 1) {
       new.row <- new.cell
