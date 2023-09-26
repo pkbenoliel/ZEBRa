@@ -67,6 +67,7 @@ ui <- fluidPage(
              uiOutput("energyDyn"),
              uiOutput("energyDyn2")
     ),
+<<<<<<< HEAD
     tabPanel("Timetable Information",
              radioButtons("timeTableSrc", "How do you want to read the route time table?",
                           c("Read from GTFS (Recommended, only if the GTFS feed is validated)" = "gtfs",
@@ -74,6 +75,8 @@ ui <- fluidPage(
              uiOutput("routeButtonPlace"),
              uiOutput("timeTablePlace")
     ),
+=======
+>>>>>>> 1b77d2f8e3ba69c5bdd02f0cccebd4e5c473e7ad
     tabPanel("Candidate Locations",
              HTML("<I>Functionality will be added in the future to manually include or exclude stops from being candidates for opportunity charging. Stay tuned!</I>")
     )
@@ -106,6 +109,7 @@ server <- function(input, output, session) {
     }
   })
 
+<<<<<<< HEAD
   output$routeButtonPlace <- renderUI({
     if(input$timeTableSrc == "manual") {
       actionButton("readRoutes", "Read Routes")
@@ -122,6 +126,8 @@ server <- function(input, output, session) {
     }
   })
 
+=======
+>>>>>>> 1b77d2f8e3ba69c5bdd02f0cccebd4e5c473e7ad
   virtBusTable <- reactiveValues(data = {
     data.frame("Label" = "Placeholder",
                "Cost" = 0,
@@ -134,6 +140,7 @@ server <- function(input, output, session) {
                "kWhPerMile" = 0)
   })
 
+<<<<<<< HEAD
   virtTimeTable <- reactiveValues(data = {
     data.frame("Route" = character(),
                "HeadwayMins" = numeric(),
@@ -149,12 +156,18 @@ server <- function(input, output, session) {
     virtTimeTable$data[i,j] <- k
   })
 
+=======
+>>>>>>> 1b77d2f8e3ba69c5bdd02f0cccebd4e5c473e7ad
   observeEvent(input$energySimplified_cell_edit, {
     info <- input$energySimplified_cell_edit
     i <- as.numeric(info$row)
     j <- as.numeric(info$col)+1
     k <- as.numeric(info$value)
+<<<<<<< HEAD
     virtEnergyChoices$data[i,j] <- k
+=======
+    virtEnergyChoices[i,j] <- k
+>>>>>>> 1b77d2f8e3ba69c5bdd02f0cccebd4e5c473e7ad
   })
 
   observeEvent(input$busTable_cell_edit, {
@@ -173,7 +186,11 @@ server <- function(input, output, session) {
           virtEnergyChoices$data <- rbind(virtEnergyChoices$data, junk)
         }
       }
+<<<<<<< HEAD
       virtEnergyChoices$data[i,1] = k
+=======
+      virtEnergyChoices[i,1] = k
+>>>>>>> 1b77d2f8e3ba69c5bdd02f0cccebd4e5c473e7ad
     } else {
       k = as.numeric(info$value)
     }
