@@ -18,7 +18,9 @@
 #'
 #' @examples
 #'
-cand_loc_searcher <- function(gtfs.obj, num.stops = 10, syn.network = NULL, all.routes = TRUE, ag.name = NULL, opacity = 0.7, verbose = TRUE, include.legend = TRUE, tileset = NULL, include.depots = TRUE) {
+cand_loc_searcher <- function(gtfs.obj, num.stops = 10, syn.network = NULL, all.routes = TRUE, ag.name = NULL,
+                              opacity = 0.7, verbose = TRUE, include.legend = TRUE, tileset = NULL,
+                              include.depots = TRUE, include.map = TRUE) {
   stop.times <- gtfs.obj$stop_times
   stops <- gtfs.obj$stops
   if(!is.null(syn.network)) {
@@ -102,7 +104,9 @@ cand_loc_searcher <- function(gtfs.obj, num.stops = 10, syn.network = NULL, all.
     if(verbose) {
       message("\nShape IDs missing. Skipping mapping.")
     }
-    the.map <- NA
+    the.map <- NULL
+  } else if(!include.map){
+    the.map <- NULL
   } else {
     ids.to.map <- NULL
     for(i in 1:length(the.list)){
@@ -152,7 +156,7 @@ gtfs_mapper <- function(gtfs.obj, ag.name = NULL, route.ids = NULL, service.ids 
   if(is.null(ag.name)) {
     ag.name <- stringr::str_to_title(gtfs.obj$agency$agency_name)
     if(verbose) {
-      mess <- paste("No agency name provided. Using", ag.name, "...")
+      mess <- paste("No agency name provided. Using ", ag.name, "...", sep = "")
       message(mess)
     }
   }
