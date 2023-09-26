@@ -215,8 +215,8 @@ get_routes_sldf <- function(gtfs.obj, route_ids, service_ids, shape_ids, route_o
   # code was taken from `stplanr::gtfs2sldf` (package::function)
   sp_lines <- (gtfs_shapes %>% dplyr::rename(lat = shape_pt_lat, lon = shape_pt_lon) %>%
                  dplyr::group_by(shape_id) %>%
-                 dplyr::arrange(shape_pt_sequence) %>% dplyr::do_(gtfsline = "sp::Lines(sp::Line(as.matrix(.[,c('lon','lat')])),unique(.$shape_id))") %>%
-                 dplyr::ungroup() %>% dplyr::do_(gtfsline = "sp::SpatialLines(.[[2]], proj4string = sp::CRS('+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'))")) %>%
+                 dplyr::arrange(shape_pt_sequence) %>% dplyr::do(gtfsline = "sp::Lines(sp::Line(as.matrix(.[,c('lon','lat')])),unique(.$shape_id))") %>%
+                 dplyr::ungroup() %>% dplyr::do(gtfsline = "sp::SpatialLines(.[[2]], proj4string = sp::CRS('+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'))")) %>%
     magrittr::extract2('gtfsline') %>%
     magrittr::extract2(1)
 
@@ -244,7 +244,7 @@ get_routes_sldf <- function(gtfs.obj, route_ids, service_ids, shape_ids, route_o
   }
 
   # extract corresponding route ids and names for shape ids
-  routes_colors <- dplyr::data_frame(route_id = route_ids,
+  routes_colors <- dplyr::tibble(route_id = route_ids,
                                         color = route_colors) %>%
     dplyr::left_join(gtfs.obj$routes %>% dplyr::select(route_id, route_short_name), by = 'route_id')
 

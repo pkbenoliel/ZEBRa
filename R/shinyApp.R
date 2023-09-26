@@ -9,6 +9,8 @@ library(purrr)
 library(DT)
 library(reshape2)
 library(magrittr)
+library(sf)
+
 
 ## ----------------------|
 ## UI CODE               |
@@ -17,17 +19,26 @@ library(magrittr)
 ui <- fluidPage(
   titlePanel("ZEBRa-Lite"),
   tabsetPanel(
-    tabPanel("Results",
+    tabPanel("Dashboard",
              column(4,
                     fileInput("gtfsFile", "GTFS Feed", buttonLabel = "Upload Feed"),
-                    actionButton("goButton", "Calculate")
+                    actionButton("goButton", "Calculate"),
+                    radioButtons("candLocSpec", "What do you want to base candidate location fitness off of?",
+                                 c("Serving the most vehicles and routes" = "mode1",
+                                   "Serving the highest mileage routes" = "mode2",
+                                   "Serving the most frequently run routes" = "mode3")),
+                    textOutput("testText")
                     ),
              column(8,
                     leafletOutput("outputMap")
                     )
     ),
-    tabPanel("Details"
-
+    tabPanel("Details",
+             column(4
+                    ),
+             column(8,
+                    tableOutput("stopsList")
+                    )
     ),
     tabPanel("Bus Parameters",
              sidebarLayout(
@@ -41,9 +52,12 @@ ui <- fluidPage(
                )
              )
     ),
-    tabPanel("Charger Parameters",
-
-
+    tabPanel("Infrastructure Parameters",
+             numericInput("oppCost", "Opportunity charger cost (thousand $USD):", value = 200, min = 0),
+             numericInput("depCost", "Depot charger cost (thousand $USD):", value = 60, min = 0),
+             numericInput("oppRate", "Rate of recharge for opportunity chargers (kW):", value = 350, min = 0),
+             numericInput("depRate", "Rate of recharge for opportunity chargers (kW):", value = 90, min = 0),
+             numericInput("energyCost", "Cost of energy ($USD per kWh):", value = 0.12, min = 0)
     ),
     tabPanel("Energy Table",
              radioButtons("energySource", "How do you want to generate the energy table?",
@@ -53,8 +67,8 @@ ui <- fluidPage(
              uiOutput("energyDyn"),
              uiOutput("energyDyn2")
     ),
-    tabPanel("Candidate Locations"
-
+    tabPanel("Candidate Locations",
+             HTML("<I>Functionality will be added in the future to manually include or exclude stops from being candidates for opportunity charging. Stay tuned!</I>")
     )
   )
 )
@@ -81,11 +95,9 @@ server <- function(input, output, session) {
     } else if(input$energySource == "generate") {
       actionButton("energyGo", "Calculate")
     } else {
-
+      DTOutput("energySimplified")
     }
   })
-
-  busDefaultLabels <- reactive(paste0("Label", seq_len(input$buses)))
 
   virtBusTable <- reactiveValues(data = {
     data.frame("Label" = "Placeholder",
@@ -94,12 +106,36 @@ server <- function(input, output, session) {
                "PackCapacity" = 1)
   })
 
+  virtEnergyChoices <- reactiveValues(data = {
+    data.frame("Bus" = "Placeholder",
+               "kWhPerMile" = 0)
+  })
+
+  observeEvent(input$energySimplified_cell_edit, {
+    info <- input$energySimplified_cell_edit
+    i <- as.numeric(info$row)
+    j <- as.numeric(info$col)+1
+    k <- as.numeric(info$value)
+    virtEnergyChoices[i,j] <- k
+  })
+
   observeEvent(input$busTable_cell_edit, {
     info <- input$busTable_cell_edit
     i = as.numeric(info$row)
     j = as.numeric(info$col)+1
     if(j == 1) {
       k = as.character(info$value)
+      if(nrow(virtBusTable$data) < nrow(virtEnergyChoices$data)) {
+        virtEnergyChoices$data <- virtEnergyChoices$data(virtEnergyChoices$data$Bus %in% virtEnergyChoices$data$Label)
+      }
+      if(nrow(virtBusTable$data) > nrow(virtEnergyChoices$data)) {
+        diff <- nrow(virtBusTable$data) - nrow(virtEnergyChoices$data)
+        junk <- data.frame("Bus" = "", "kWhPerMile" = 0)
+        for(c in 1:diff) {
+          virtEnergyChoices$data <- rbind(virtEnergyChoices$data, junk)
+        }
+      }
+      virtEnergyChoices[i,1] = k
     } else {
       k = as.numeric(info$value)
     }
@@ -113,6 +149,10 @@ server <- function(input, output, session) {
 
   observeEvent(input$addRow, {
     virtBusTable$data <- addNewRow(virtBusTable$data)
+  })
+
+  output$energySimplified <- renderDT({
+    DT::datatable(virtEnergyChoices$data, editable = list(target = "row", disable = list(columns = 0)), rownames = FALSE)
   })
 
   output$busTable <- renderDT({
@@ -144,6 +184,10 @@ server <- function(input, output, session) {
     tibble(cand.table$data) %>%
                      select(stop_id, occ, label, group) %>%
                      rename("StopID" = stop_id, "TimesStopped" = occ, "StopLabel" = label, "ClusterNumber" = group)
+  })
+
+  output$testText <- renderText({
+    paste0("Energy on test is ", virtEnergyChoices$data$kWhPerMile[1])
   })
 }
 
