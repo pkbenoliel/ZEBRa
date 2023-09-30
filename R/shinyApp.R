@@ -1,5 +1,6 @@
 #Libraries
 library(shiny)
+library(shinyjs)
 library(leaflet)
 library(tidytransit)
 library(tidyverse)
@@ -17,6 +18,7 @@ library(sf)
 ## ----------------------|
 
 ui <- fluidPage(
+  shinyjs::useShinyjs(),
   titlePanel("ZEBRa-Lite"),
   tabsetPanel(
     tabPanel("Dashboard",
@@ -24,13 +26,15 @@ ui <- fluidPage(
                     fileInput("gtfsFile", "GTFS Feed", buttonLabel = "Upload Feed"),
                     numericInput("oppChargers", "How many opportunity chargers do you want to use?", value = 0, min = 0),
                     actionButton("goButton", "Calculate"),
+                    textOutput("testText")
                     ),
              column(6,
 
                     radioButtons("candLocSpec", "What do you want to base candidate location fitness off of?",
-                                 c("Serving the most vehicles and routes" = "mode1",
-                                   "Serving the highest mileage routes" = "mode2",
-                                   "Serving the most frequently run routes" = "mode3"))
+                                 c("Providing a charger to each route" = "mode1",
+                                   "Create the most charging opportunities" = "mode2",
+                                   "Serving the highest mileage routes" = "mode3",
+                                   "Serving the most frequently run routes" = "mode4"))
                     )
     ),
     tabPanel("Results",
@@ -148,6 +152,24 @@ server <- function(input, output, session) {
                "TripLength" = numeric())
   })
 
+  candLocMode <- reactiveVal(0)
+
+  observeEvent(input$candLocSpec, {
+    if(input$candLocSpec == "mode1") {
+      shinyjs::disable("oppChargers")
+      candLocMode(1)
+    } else if(input$candLocSpec == "mode2") {
+      shinyjs::enable("oppChargers")
+      candLocMode(2)
+    } else if(input$candLocSpec == "mode3") {
+      shinyjs::enable("oppChargers")
+      candLocMode(3)
+    } else if(input$candLocSpec == "mode4") {
+      shinyjs::enable("oppChargers")
+      candLocMode(4)
+    }
+  })
+
   observeEvent(input$timeTable_cell_edit, {
     info <- input$timeTable_cell_edit
     i <- as.numeric(info$row)
@@ -247,6 +269,10 @@ server <- function(input, output, session) {
     tibble(cand.table$data) %>%
                      select(stop_id, occ, label, group) %>%
                      rename("StopID" = stop_id, "TimesStopped" = occ, "StopLabel" = label, "ClusterNumber" = group)
+  })
+
+  output$testText <- renderText({
+    paste0("The selected mode is ", as.character(candLocMode()), ".")
   })
 }
 
