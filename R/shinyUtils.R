@@ -2,7 +2,7 @@ addNewRow <- function(data) {
   for(i in 1:ncol(data)) {
     new.cell <- switch(class(data[1,i]),
                        "numeric" = 0,
-                       "character" = "",
+                       "character" = "Placeholder",
                        NULL
     )
     if(i == 1) {

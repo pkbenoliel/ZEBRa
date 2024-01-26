@@ -14,7 +14,8 @@ cand_loc_searcher(
   verbose = TRUE,
   include.legend = TRUE,
   tileset = NULL,
-  include.depots = TRUE
+  include.depots = TRUE,
+  include.map = TRUE
 )
 }
 \arguments{

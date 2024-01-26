@@ -119,7 +119,11 @@ latlon_2_meter <- function(lat1, lon1, lat2, lon2) {
 #' @param route_colors Character. Names of colors (e.g. "blue") or hex values (e.g. '#000000').
 #' @return Environment containing spatial data, labels, colorings used for plotting
 #' @export
-get_routes_sldf <- function(gtfs.obj, route_ids, service_ids, shape_ids, route_opacity, route_colors) {
+
+## TO DO: this code needs to be cleaned up. There are significant sections borrowed from gtfsr::get_routes_sldf (https://github.com/ropensci-archive/gtfsr),
+## which is a deprecated package and codebase.  It works for now, but needs to be modernized/cleaned.
+
+prep_routes_for_map <- function(gtfs.obj, route_ids, service_ids, shape_ids, route_opacity, route_colors) {
 
   stopifnot("gtfs" %in% class(gtfs.obj),
             !is.null(gtfs.obj$shapes),
@@ -212,22 +216,10 @@ get_routes_sldf <- function(gtfs.obj, route_ids, service_ids, shape_ids, route_o
   gtfs_shapes <- gtfs.obj$shapes %>%
     dplyr::slice(which(shape_id %in% shape_ids))
 
-  # code was taken from `stplanr::gtfs2sldf` (package::function)
-  sp_lines <- (gtfs_shapes %>% dplyr::rename(lat = shape_pt_lat, lon = shape_pt_lon) %>%
-                 dplyr::group_by(shape_id) %>%
-                 dplyr::arrange(shape_pt_sequence) %>% dplyr::do(gtfsline = "sp::Lines(sp::Line(as.matrix(.[,c('lon','lat')])),unique(.$shape_id))") %>%
-                 dplyr::ungroup() %>% dplyr::do(gtfsline = "sp::SpatialLines(.[[2]], proj4string = sp::CRS('+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'))")) %>%
-    magrittr::extract2('gtfsline') %>%
-    magrittr::extract2(1)
 
-  # get updated shape ids (order matters)
-  shape_ids <- sapply(sp_lines@lines, function(x) x@ID)
-
-  df <- shape_ids %>%
-    as.data.frame %>%
-    `rownames<-`(., shape_ids)
-
-  gtfs_lines <- sp::SpatialLinesDataFrame(sp_lines, data = df)
+  gtfs_lines <- gtfs_shapes %>% rename(lat = shape_pt_lat, lon = shape_pt_lon) %>% left_join(shapes_routes, by = "shape_id", relationship = "many-to-many") %>%
+    group_by(shape_id, service_id) %>% st_as_sf(coords = c("lon", "lat")) %>% st_set_crs(4326) %>%
+    summarise(do_union = FALSE) %>% st_cast("LINESTRING")
 
   # OPACITY AND COLORS ------------------------------------------------
   ## route_colors
@@ -299,8 +291,7 @@ get_routes_sldf <- function(gtfs.obj, route_ids, service_ids, shape_ids, route_o
   }
 
   # update routes and keep only routes with shapes
-  routes_colors %<>%
-    dplyr::filter(route_id %in% keep)
+  routes_colors <- routes_colors %>% dplyr::filter(route_id %in% keep)
 
   # return
   env <- new.env()

@@ -25,8 +25,12 @@ ui <- fluidPage(
              column(6,
                     fileInput("gtfsFile", "GTFS Feed", buttonLabel = "Upload Feed"),
                     numericInput("oppChargers", "How many opportunity chargers do you want to use?", value = 0, min = 0),
-                    actionButton("goButton", "Calculate"),
-                    textOutput("testText")
+                    numericInput("oppCost", "Opportunity charger cost (thousand $USD):", value = 200, min = 0),
+                    numericInput("depCost", "Depot charger cost (thousand $USD):", value = 60, min = 0),
+                    numericInput("oppRate", "Rate of recharge for opportunity chargers (kW):", value = 350, min = 0),
+                    numericInput("depRate", "Rate of recharge for opportunity chargers (kW):", value = 90, min = 0),
+                    numericInput("energyCost", "Cost of energy ($USD per kWh):", value = 0.12, min = 0),
+                    actionButton("goButton", "Calculate")
                     ),
              column(6,
 
@@ -38,7 +42,8 @@ ui <- fluidPage(
                     )
     ),
     tabPanel("Results",
-             column(4
+             column(4,
+                    textOutput("testText")
                     ),
              column(8,
                     leafletOutput("outputMap")
@@ -62,13 +67,6 @@ ui <- fluidPage(
                  DTOutput("busTable")
                )
              )
-    ),
-    tabPanel("Infrastructure Parameters",
-             numericInput("oppCost", "Opportunity charger cost (thousand $USD):", value = 200, min = 0),
-             numericInput("depCost", "Depot charger cost (thousand $USD):", value = 60, min = 0),
-             numericInput("oppRate", "Rate of recharge for opportunity chargers (kW):", value = 350, min = 0),
-             numericInput("depRate", "Rate of recharge for opportunity chargers (kW):", value = 90, min = 0),
-             numericInput("energyCost", "Cost of energy ($USD per kWh):", value = 0.12, min = 0)
     ),
     tabPanel("Energy Table",
              radioButtons("energySource", "How do you want to generate the energy table?",
@@ -111,9 +109,17 @@ server <- function(input, output, session) {
     if(input$energySource == "upload") {
       fileInput("energyTable", "Upload Energy Table", accept = ".csv")
     } else if(input$energySource == "generate") {
-      actionButton("energyGo", "Calculate")
+      textInput("gmapsKey", "Google Maps API")
     } else {
       DTOutput("energySimplified")
+    }
+  })
+
+  output$energyDyn2 <- renderUI({
+    if(input$energySource == "generate") {
+      actionButton("energyGo", "Calculate")
+    } else {
+      #Left empty on purpose
     }
   })
 
@@ -249,10 +255,10 @@ server <- function(input, output, session) {
   observeEvent(input$goButton, {
     req(input$gtfsFile)
     gtfsObj <- tidytransit::read_gtfs(input$gtfsFile$datapath)
-    cand.locs.tmp <- cand_loc_searcher(gtfsObj, verbose = FALSE, include.legend = FALSE, include.depots = FALSE,
-                                       include.map = FALSE)
+    cand.locs.tmp <- cand_loc_searcher(gtfsObj, verbose = FALSE, include.legend = FALSE, include.depots = FALSE)
     cand.map$data <- cand.locs.tmp$map
     cand.table$data <- cand.locs.tmp$stops_table
+    output$testText <- renderText({"A Calculate command was detected."})
     showNotification("Complete!")
   })
 
@@ -271,10 +277,8 @@ server <- function(input, output, session) {
                      rename("StopID" = stop_id, "TimesStopped" = occ, "StopLabel" = label, "ClusterNumber" = group)
   })
 
-  output$testText <- renderText({
-    paste0("The selected mode is ", as.character(candLocMode()), ".")
-  })
 }
 
 shinyApp(ui, server)
+
 

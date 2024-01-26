@@ -19,7 +19,7 @@
 #' @examples
 #'
 gtfs_mapper <- function(gtfs.obj, ag.name = NULL, route.ids = NULL, service.ids = NULL, shape.ids = NULL, opacity = 0.7,
-                        route.colors = NULL, verbose = TRUE, tileset = NULL, include.legend = TRUE) {
+                        route.colors = NULL, verbose = FALSE, tileset = NULL, include.legend = TRUE) {
   if(is.null(ag.name)) {
     ag.name <- stringr::str_to_title(gtfs.obj$agency$agency_name)
     if(verbose) {
@@ -35,7 +35,9 @@ gtfs_mapper <- function(gtfs.obj, ag.name = NULL, route.ids = NULL, service.ids 
   if(!is.character(route.ids)) {
     route.ids <- as.character(route.ids)
   }
-  plotting.data <- suppressMessages(get_routes_sldf(gtfs.obj, route.ids, service.ids, shape.ids, opacity, route.colors))
+  plotting.data <- suppressMessages(prep_routes_for_map(gtfs.obj, route.ids, service.ids, shape.ids, opacity, route.colors))
+
+
 
   m <- leaflet::leaflet(plotting.data$gtfs_lines)
   if(is.null(tileset)) {
