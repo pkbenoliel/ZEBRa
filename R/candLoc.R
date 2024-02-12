@@ -140,8 +140,11 @@ cand_loc_mode <- function(gtfs.obj, mode.number, charger.number, syn.network = N
   return(output)
 }
 
-cand_loc_searcher_allRoutes <- function(gtfs.obj, opacity = 0.7, verbose = FALSE, include.legend = TRUE,
-                                        tileset = NULL, include.map = TRUE) {
+## ----------------------|
+## MODE 1: ALL ROUTES    |
+## ----------------------|
+
+cand_loc_searcher_allRoutes <- function(gtfs.obj, syn.network = NULL, exclude.table = NULL) {
   stop.times <- gtfs.obj$stop_times
   stops <- gtfs.obj$stops
 
@@ -244,8 +247,11 @@ cand_loc_searcher_allRoutes <- function(gtfs.obj, opacity = 0.7, verbose = FALSE
   return(return.list)
 }
 
-cand_loc_searcher_opportunities <- function(gtfs.obj, num.stops = 10, syn.network = NULL, opacity = 0.7,
-                                            verbose = FALSE, include.legend = TRUE, tileset = NULL, include.map = TRUE) {
+## ----------------------------------|
+## MODE 2: CHARGING OPPORTUNITIES    |
+## ----------------------------------|
+
+cand_loc_searcher_opportunities <- function(gtfs.obj, num.stops, syn.network = NULL, exclude.table = NULL) {
   stop.times <- gtfs.obj$stop_times
   stops <- gtfs.obj$stops
   if(!is.null(syn.network)) {
@@ -311,6 +317,189 @@ cand_loc_searcher_opportunities <- function(gtfs.obj, num.stops = 10, syn.networ
     the.map <- NULL
   } else if(!include.map){
     the.map <- NULL
+  } else {
+    ids.to.map <- NULL
+    for(i in 1:length(the.list)){
+      ids.to.map <- c(ids.to.map, as.character(the.list[[i]][1]))
+    }
+    lats.to.map <- stops.frequency$lat[stops.frequency$stop_id %in% ids.to.map]
+    lons.to.map <- stops.frequency$lon[stops.frequency$stop_id %in% ids.to.map]
+    the.map <- gtfs_mapper(gtfs.obj, ag.name = ag.name, route.ids = syn.network, opacity = opacity, verbose = verbose, tileset = tileset, include.legend = include.legend)
+    blueIcon <- leaflet::makeIcon(
+      iconUrl = "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png",
+      iconWidth = 25,
+      iconHeight = 41,
+      iconAnchorX = 12,
+      iconAnchorY = 41,
+      shadowUrl = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
+      shadowHeight = 41,
+      shadowWidth = 41
+    )
+    the.map <- the.map %>% leaflet::addMarkers(lng = lons.to.map, lat = lats.to.map, icon = blueIcon, label = names(the.list))
+  }
+  return.list <- list(stops_plot = the.plot, stops_table = stops.frequency, map = the.map, stops_list = the.list)
+  return(return.list)
+}
+
+## ---------------------------|
+## MODE 3: LONGEST ROUTES     |
+## ---------------------------|
+
+cand_loc_searcher_miles <- function(gtfs.obj, num.stops, syn.network = NULL, exclude.table = NULL) {
+  stop.times <- gtfs.obj$stop_times
+  stops <- gtfs.obj$stops
+  if(!is.null(syn.network)) {
+    trips <- gtfs.obj$trips %>% dplyr::select(c("trip_id", "route_id"))
+    stop.times <- base::merge(stop.times, trips, by = "trip_id")
+    stop.times <- stop.times[stop.times$route_id %in% syn.network,]
+  }
+  stops.frequency <- as.data.frame(dplyr::count(stop.times, stop_id, sort = TRUE, name = "occ"))[c(1:num.stops),]
+  stops.frequency$label <- NA
+  for(i in 1:nrow(stops.frequency)) {
+    stops.frequency$label[i] <- stops$stop_name[stops$stop_id == stops.frequency$stop_id[i]]
+  }
+  stops.frequency$lat <- 0
+  stops.frequency$lon <- 0
+  for(i in 1:nrow(stops.frequency)) {
+    stops.frequency$lat[i] <- stops$stop_lat[stops$stop_id == stops.frequency$stop_id[i]]
+    stops.frequency$lon[i] <- stops$stop_lon[stops$stop_id == stops.frequency$stop_id[i]]
+  }
+
+  stops.frequency$group <- NA
+  stops.frequency$group[1] <- "1"
+  let.tmp <- 1
+  if(nrow(stops.frequency) > 1) {
+    for(i in 2:nrow(stops.frequency)) {
+      for(j in 1:(i-1)) {
+        dist.check <- latlon_2_meter(stops.frequency$lat[i], stops.frequency$lon[i], stops.frequency$lat[j], stops.frequency$lon[j])
+        if(dist.check <= 100) {
+          if(is.na(stops.frequency$group[i])) {
+            stops.frequency$group[i] <- stops.frequency$group[j]
+          } else if(stops.frequency$group[j] %in% stops.frequency$group[i]) {
+
+          } else {
+            stops.frequency$group[i] <- paste(stops.frequency$group[i], stops.frequency$group[j], sep = ", ")
+          }
+        }
+      }
+      if(is.na(stops.frequency$group[i])) {
+        let.tmp <- let.tmp + 1
+        stops.frequency$group[i] <- as.character(let.tmp)
+      }
+    }
+  }
+
+  the.list <- list()
+  for(i in 1:let.tmp) {
+    ids.tmp <- numeric()
+    for(j in 1:nrow(stops.frequency)) {
+      if(as.character(i) %in% stops.frequency$group[j]) {
+        ids.tmp <- c(ids.tmp, stops.frequency$stop_id[j])
+      }
+    }
+    the.list[[i]] <- ids.tmp
+  }
+
+  names(the.list) <- as.character(seq(from = 1, to = let.tmp, by = 1))
+  the.plot <- ggplot2::ggplot(data = stops.frequency, ggplot2::aes(x = label, y = occ)) +
+    ggplot2::geom_bar(stat = "identity", width = 0.7 ) +
+    ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
+  if(!("shape_id" %in% names(gtfs.obj$trips)) | !("shapes" %in% names(gtfs.obj))) {
+    if(verbose) {
+      message("\nShape IDs missing. Skipping mapping.")
+    }
+    the.map <- NULL
+  } else if(!include.map){
+    the.map <- NULL
+  } else {
+    ids.to.map <- NULL
+    for(i in 1:length(the.list)){
+      ids.to.map <- c(ids.to.map, as.character(the.list[[i]][1]))
+    }
+    lats.to.map <- stops.frequency$lat[stops.frequency$stop_id %in% ids.to.map]
+    lons.to.map <- stops.frequency$lon[stops.frequency$stop_id %in% ids.to.map]
+    the.map <- gtfs_mapper(gtfs.obj, ag.name = ag.name, route.ids = syn.network, opacity = opacity, verbose = verbose, tileset = tileset, include.legend = include.legend)
+    blueIcon <- leaflet::makeIcon(
+      iconUrl = "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png",
+      iconWidth = 25,
+      iconHeight = 41,
+      iconAnchorX = 12,
+      iconAnchorY = 41,
+      shadowUrl = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
+      shadowHeight = 41,
+      shadowWidth = 41
+    )
+    the.map <- the.map %>% leaflet::addMarkers(lng = lons.to.map, lat = lats.to.map, icon = blueIcon, label = names(the.list))
+  }
+  return.list <- list(stops_plot = the.plot, stops_table = stops.frequency, map = the.map, stops_list = the.list)
+  return(return.list)
+}
+
+## ------------------------------|
+## MODE 4: MOST FREQUENT ROUTES  |
+## ------------------------------|
+
+cand_loc_searcher_freq <- function(gtfs.obj, num.stops, syn.network = NULL, exclude.table = NULL, freq.table) {
+  stop.times <- gtfs.obj$stop_times
+  stops <- gtfs.obj$stops
+  if(!is.null(syn.network)) {
+    trips <- gtfs.obj$trips %>% dplyr::select(c("trip_id", "route_id"))
+    stop.times <- base::merge(stop.times, trips, by = "trip_id")
+    stop.times <- stop.times[stop.times$route_id %in% syn.network,]
+  }
+  stops.frequency <- as.data.frame(dplyr::count(stop.times, stop_id, sort = TRUE, name = "occ"))[c(1:num.stops),]
+  stops.frequency$label <- NA
+  for(i in 1:nrow(stops.frequency)) {
+    stops.frequency$label[i] <- stops$stop_name[stops$stop_id == stops.frequency$stop_id[i]]
+  }
+  stops.frequency$lat <- 0
+  stops.frequency$lon <- 0
+  for(i in 1:nrow(stops.frequency)) {
+    stops.frequency$lat[i] <- stops$stop_lat[stops$stop_id == stops.frequency$stop_id[i]]
+    stops.frequency$lon[i] <- stops$stop_lon[stops$stop_id == stops.frequency$stop_id[i]]
+  }
+
+  stops.frequency$group <- NA
+  stops.frequency$group[1] <- "1"
+  let.tmp <- 1
+  if(nrow(stops.frequency) > 1) {
+    for(i in 2:nrow(stops.frequency)) {
+      for(j in 1:(i-1)) {
+        dist.check <- latlon_2_meter(stops.frequency$lat[i], stops.frequency$lon[i], stops.frequency$lat[j], stops.frequency$lon[j])
+        if(dist.check <= 100) {
+          if(is.na(stops.frequency$group[i])) {
+            stops.frequency$group[i] <- stops.frequency$group[j]
+          } else if(stops.frequency$group[j] %in% stops.frequency$group[i]) {
+
+          } else {
+            stops.frequency$group[i] <- paste(stops.frequency$group[i], stops.frequency$group[j], sep = ", ")
+          }
+        }
+      }
+      if(is.na(stops.frequency$group[i])) {
+        let.tmp <- let.tmp + 1
+        stops.frequency$group[i] <- as.character(let.tmp)
+      }
+    }
+  }
+
+  the.list <- list()
+  for(i in 1:let.tmp) {
+    ids.tmp <- numeric()
+    for(j in 1:nrow(stops.frequency)) {
+      if(as.character(i) %in% stops.frequency$group[j]) {
+        ids.tmp <- c(ids.tmp, stops.frequency$stop_id[j])
+      }
+    }
+    the.list[[i]] <- ids.tmp
+  }
+
+  names(the.list) <- as.character(seq(from = 1, to = let.tmp, by = 1))
+  the.plot <- ggplot2::ggplot(data = stops.frequency, ggplot2::aes(x = label, y = occ)) +
+    ggplot2::geom_bar(stat = "identity", width = 0.7 ) +
+    ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
+  if(!("shape_id" %in% names(gtfs.obj$trips)) | !("shapes" %in% names(gtfs.obj))) {
+    the.map <- "Shape IDs missing. Routes could not be mapped."
   } else {
     ids.to.map <- NULL
     for(i in 1:length(the.list)){

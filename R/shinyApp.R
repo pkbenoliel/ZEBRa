@@ -21,6 +21,8 @@ ui <- fluidPage(
   shinyjs::useShinyjs(),
   titlePanel("ZEBRa-Lite"),
   tabsetPanel(
+    tabPanel("Instructions"
+             ),
     tabPanel("Dashboard",
              column(6,
                     fileInput("gtfsFile", "GTFS Feed", buttonLabel = "Upload Feed"),
@@ -28,22 +30,27 @@ ui <- fluidPage(
                     numericInput("oppCost", "Opportunity charger cost (thousand $USD):", value = 200, min = 0),
                     numericInput("depCost", "Depot charger cost (thousand $USD):", value = 60, min = 0),
                     numericInput("oppRate", "Rate of recharge for opportunity chargers (kW):", value = 350, min = 0),
-                    numericInput("depRate", "Rate of recharge for opportunity chargers (kW):", value = 90, min = 0),
+                    numericInput("depRate", "Rate of recharge for depot chargers (kW):", value = 90, min = 0),
                     numericInput("energyCost", "Cost of energy ($USD per kWh):", value = 0.12, min = 0),
+                    bsTooltip("energyCost", "A flat energy cost per kWh applied to the whole system. This value is used to calculate expected running costs.", "right", options = list(container = "body")),
+                    actionButton("mapButton", "Draw Map"),
                     actionButton("goButton", "Calculate")
                     ),
              column(6,
 
                     radioButtons("candLocSpec", "What do you want to base candidate location fitness off of?",
                                  c("Providing a charger to each route" = "mode1",
-                                   "Create the most charging opportunities" = "mode2",
+                                   "Create the most charging opportunities (most frequent stops)" = "mode2",
                                    "Serving the highest mileage routes" = "mode3",
-                                   "Serving the most frequently run routes" = "mode4"))
+                                   "Serving the most frequently run routes" = "mode4")),
+                    textOutput("candLocWarn"),
+                    tags$head(tags$style("#candLocWarn{color: red; font-style: italic"))
                     )
     ),
     tabPanel("Results",
              column(4,
-                    textOutput("testText")
+                    textOutput("testText"),
+
                     ),
              column(8,
                     leafletOutput("outputMap")
@@ -66,7 +73,7 @@ ui <- fluidPage(
                mainPanel(
                  DTOutput("busTable")
                )
-             )
+            )
     ),
     tabPanel("Energy Table",
              radioButtons("energySource", "How do you want to generate the energy table?",
@@ -159,20 +166,26 @@ server <- function(input, output, session) {
   })
 
   candLocMode <- reactiveVal(0)
+  energyMode <- reactiveVal(0)
+  routesMode <- reactiveVal(0)
 
   observeEvent(input$candLocSpec, {
     if(input$candLocSpec == "mode1") {
       shinyjs::disable("oppChargers")
       candLocMode(1)
+      output$candLocWarn <- renderText(NULL)
     } else if(input$candLocSpec == "mode2") {
       shinyjs::enable("oppChargers")
       candLocMode(2)
+      output$candLocWarn <- renderText(NULL)
     } else if(input$candLocSpec == "mode3") {
       shinyjs::enable("oppChargers")
       candLocMode(3)
+      output$candLocWarn <- renderText({"Requires accurate mileage data in an uploaded energy table, or entered via the \"Timetable Information\" tab. Please ensure that the data are entered correctly before using this mode."})
     } else if(input$candLocSpec == "mode4") {
       shinyjs::enable("oppChargers")
       candLocMode(4)
+      output$candLocWarn <- renderText({"Requires accurate headway data in an uploaded energy table, or entered via the \"Timetable Information\" tab. Please ensure that the data are entered correctly before using this mode."})
     }
   })
 
@@ -252,14 +265,23 @@ server <- function(input, output, session) {
     }
   })
 
-  observeEvent(input$goButton, {
+  observeEvent(input$mapButton, {
     req(input$gtfsFile)
     gtfsObj <- tidytransit::read_gtfs(input$gtfsFile$datapath)
     cand.locs.tmp <- cand_loc_searcher(gtfsObj, verbose = FALSE, include.legend = FALSE, include.depots = FALSE)
     cand.map$data <- cand.locs.tmp$map
+    if(is.character(cand.map$data)) {
+      showNotification(cand.map$data, type = "error")
+      cand.map$data <- NULL
+    }
     cand.table$data <- cand.locs.tmp$stops_table
-    output$testText <- renderText({"A Calculate command was detected."})
+    output$testText <- renderText({"A Map command was detected."})
     showNotification("Complete!")
+  })
+
+  observeEvent(input$goButton, {
+    req(input$gtfsFile)
+
   })
 
   output$outputMap <- renderLeaflet({
