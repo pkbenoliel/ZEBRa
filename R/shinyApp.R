@@ -1,6 +1,7 @@
 #Libraries
 library(shiny)
 library(shinyjs)
+library(shinyBS)
 library(leaflet)
 library(tidytransit)
 library(tidyverse)
