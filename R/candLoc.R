@@ -135,6 +135,8 @@ cand_loc_mode <- function(gtfs.obj, mode.number, charger.number, syn.network = N
   switch(mode.number,
          {output <- cand_loc_searcher_allRoutes(gtfs.obj)},
          {output <- cand_loc_searcher_opportunities(gtfs.obj, num.stops = charger.number, syn.network = syn.network)},
+         {output <- cand_loc_searcher_freq(gtfs.obj, num.stops = charger.number, syn.network = syn.network)},
+         {output <- cand_loc_searcher_miles(gtfs.obj, num.stops = charger.number, syn.network = syn.network)},
          {stop("Mode not recognized.")}
          )
   return(output)
@@ -217,12 +219,7 @@ cand_loc_searcher_allRoutes <- function(gtfs.obj, syn.network = NULL, exclude.ta
     ggplot2::geom_bar(stat = "identity", width = 0.7 ) +
     ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
   if(!("shape_id" %in% names(gtfs.obj$trips)) | !("shapes" %in% names(gtfs.obj))) {
-    if(verbose) {
-      message("\nShape IDs missing. Skipping mapping.")
-    }
-    the.map <- NULL
-  } else if(!include.map){
-    the.map <- NULL
+    stop("Mapping could not be completed due to missing shape information.")
   } else {
     ids.to.map <- NULL
     for(i in 1:length(the.list)){
@@ -230,7 +227,7 @@ cand_loc_searcher_allRoutes <- function(gtfs.obj, syn.network = NULL, exclude.ta
     }
     lats.to.map <- stops.frequency$lat[stops.frequency$stop_id %in% ids.to.map]
     lons.to.map <- stops.frequency$lon[stops.frequency$stop_id %in% ids.to.map]
-    the.map <- gtfs_mapper(gtfs.obj, ag.name = ag.name, route.ids = syn.network, opacity = opacity, verbose = verbose, tileset = tileset, include.legend = include.legend)
+    the.map <- gtfs_mapper(gtfs.obj, ag.name = NULL, route.ids = syn.network, opacity = 0.7, verbose = FALSE, tileset = NULL, include.legend = FALSE)
     blueIcon <- leaflet::makeIcon(
       iconUrl = "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png",
       iconWidth = 25,
@@ -311,12 +308,7 @@ cand_loc_searcher_opportunities <- function(gtfs.obj, num.stops, syn.network = N
     ggplot2::geom_bar(stat = "identity", width = 0.7 ) +
     ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
   if(!("shape_id" %in% names(gtfs.obj$trips)) | !("shapes" %in% names(gtfs.obj))) {
-    if(verbose) {
-      message("\nShape IDs missing. Skipping mapping.")
-    }
-    the.map <- NULL
-  } else if(!include.map){
-    the.map <- NULL
+    stop("Mapping could not be completed due to missing shape information.")
   } else {
     ids.to.map <- NULL
     for(i in 1:length(the.list)){
@@ -324,7 +316,7 @@ cand_loc_searcher_opportunities <- function(gtfs.obj, num.stops, syn.network = N
     }
     lats.to.map <- stops.frequency$lat[stops.frequency$stop_id %in% ids.to.map]
     lons.to.map <- stops.frequency$lon[stops.frequency$stop_id %in% ids.to.map]
-    the.map <- gtfs_mapper(gtfs.obj, ag.name = ag.name, route.ids = syn.network, opacity = opacity, verbose = verbose, tileset = tileset, include.legend = include.legend)
+    the.map <- gtfs_mapper(gtfs.obj, ag.name = NULL, route.ids = syn.network, opacity = 0.7, verbose = FALSE, tileset = NULL, include.legend = FALSE)
     blueIcon <- leaflet::makeIcon(
       iconUrl = "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png",
       iconWidth = 25,
@@ -405,12 +397,7 @@ cand_loc_searcher_miles <- function(gtfs.obj, num.stops, syn.network = NULL, exc
     ggplot2::geom_bar(stat = "identity", width = 0.7 ) +
     ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
   if(!("shape_id" %in% names(gtfs.obj$trips)) | !("shapes" %in% names(gtfs.obj))) {
-    if(verbose) {
-      message("\nShape IDs missing. Skipping mapping.")
-    }
-    the.map <- NULL
-  } else if(!include.map){
-    the.map <- NULL
+    stop("Mapping could not be completed due to missing shape information.")
   } else {
     ids.to.map <- NULL
     for(i in 1:length(the.list)){
@@ -418,7 +405,7 @@ cand_loc_searcher_miles <- function(gtfs.obj, num.stops, syn.network = NULL, exc
     }
     lats.to.map <- stops.frequency$lat[stops.frequency$stop_id %in% ids.to.map]
     lons.to.map <- stops.frequency$lon[stops.frequency$stop_id %in% ids.to.map]
-    the.map <- gtfs_mapper(gtfs.obj, ag.name = ag.name, route.ids = syn.network, opacity = opacity, verbose = verbose, tileset = tileset, include.legend = include.legend)
+    the.map <- gtfs_mapper(gtfs.obj, ag.name = NULL, route.ids = syn.network, opacity = 0.7, verbose = FALSE, tileset = NULL, include.legend = FALSE)
     blueIcon <- leaflet::makeIcon(
       iconUrl = "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png",
       iconWidth = 25,
@@ -499,7 +486,7 @@ cand_loc_searcher_freq <- function(gtfs.obj, num.stops, syn.network = NULL, excl
     ggplot2::geom_bar(stat = "identity", width = 0.7 ) +
     ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
   if(!("shape_id" %in% names(gtfs.obj$trips)) | !("shapes" %in% names(gtfs.obj))) {
-    the.map <- "Shape IDs missing. Routes could not be mapped."
+    stop("Mapping could not be completed due to missing shape information.")
   } else {
     ids.to.map <- NULL
     for(i in 1:length(the.list)){
@@ -507,7 +494,7 @@ cand_loc_searcher_freq <- function(gtfs.obj, num.stops, syn.network = NULL, excl
     }
     lats.to.map <- stops.frequency$lat[stops.frequency$stop_id %in% ids.to.map]
     lons.to.map <- stops.frequency$lon[stops.frequency$stop_id %in% ids.to.map]
-    the.map <- gtfs_mapper(gtfs.obj, ag.name = ag.name, route.ids = syn.network, opacity = opacity, verbose = verbose, tileset = tileset, include.legend = include.legend)
+    the.map <- gtfs_mapper(gtfs.obj, ag.name = NULL, route.ids = syn.network, opacity = 0.7, verbose = FALSE, tileset = NULL, include.legend = FALSE)
     blueIcon <- leaflet::makeIcon(
       iconUrl = "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png",
       iconWidth = 25,

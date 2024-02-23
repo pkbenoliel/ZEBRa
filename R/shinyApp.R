@@ -28,11 +28,9 @@ ui <- fluidPage(
              column(6,
                     fileInput("gtfsFile", "GTFS Feed", buttonLabel = "Upload Feed"),
                     numericInput("oppChargers", "How many opportunity chargers do you want to use?", value = 0, min = 0),
-                    numericInput("oppCost", "Opportunity charger cost (thousand $USD):", value = 200, min = 0),
-                    numericInput("depCost", "Depot charger cost (thousand $USD):", value = 60, min = 0),
-                    numericInput("oppRate", "Rate of recharge for opportunity chargers (kW):", value = 350, min = 0),
-                    numericInput("depRate", "Rate of recharge for depot chargers (kW):", value = 90, min = 0),
+                    numericInput("operatingYears", "Number of years the bus is planned to operate:", value = 12, min = 1),
                     numericInput("energyCost", "Cost of energy ($USD per kWh):", value = 0.12, min = 0),
+                    numericInput("diesel", "Cost per gallon of diesel ($USD) (optional):", value = 0, min = 0),
                     bsTooltip("energyCost", "A flat energy cost per kWh applied to the whole system. This value is used to calculate expected running costs.", "right", options = list(container = "body")),
                     actionButton("mapButton", "Draw Map"),
                     actionButton("goButton", "Calculate")
@@ -41,27 +39,33 @@ ui <- fluidPage(
 
                     radioButtons("candLocSpec", "What do you want to base candidate location fitness off of?",
                                  c("Providing a charger to each route" = "mode1",
-                                   "Create the most charging opportunities (most frequent stops)" = "mode2",
-                                   "Serving the highest mileage routes" = "mode3",
-                                   "Serving the most frequently run routes" = "mode4")),
+                                   "Create the most charging opportunities (most frequent stops)" = "mode2"
+#                                   "Serving the highest mileage routes" = "mode3",
+#                                   "Serving the most frequently run routes" = "mode4"
+                                   )),
                     textOutput("candLocWarn"),
-                    tags$head(tags$style("#candLocWarn{color: red; font-style: italic"))
+                    tags$head(tags$style("#candLocWarn{color: red; font-style: italic")),
+                    numericInput("dutyRatio", "Select expected duty ratio of the opportunity chargers (%):", min = 10, max = 90, value = 60),
+                    numericInput("oppCost", "Opportunity charger cost (thousand $USD):", value = 200, min = 0),
+                    numericInput("depCost", "Depot charger cost (thousand $USD):", value = 60, min = 0),
+                    numericInput("oppRate", "Rate of recharge for opportunity chargers (kW):", value = 350, min = 0),
+                    numericInput("depRate", "Rate of recharge for depot chargers (kW):", value = 90, min = 0)
                     )
     ),
     tabPanel("Results",
              column(4,
-                    textOutput("testText"),
-
+                    textOutput("totalCostText"),
+                    textOutput("capitalCostText"),
+                    plotOutput("costPie")
                     ),
              column(8,
-                    leafletOutput("outputMap")
-                    )
-    ),
-    tabPanel("Details",
-             column(4
-                    ),
-             column(8,
-                    tableOutput("stopsList")
+                    tabsetPanel(
+                      tabPanel("Map",
+                               leafletOutput("outputMap")),
+                      tabPanel("List of Stops",
+                               tableOutput("stopsList")
+                               )
+                      )
                     )
     ),
     tabPanel("Bus Parameters",
@@ -151,7 +155,8 @@ server <- function(input, output, session) {
     data.frame("Label" = "Placeholder",
                "Cost" = 0,
                "Mass" = 1,
-               "PackCapacity" = 1)
+               "PackCapacity" = 1,
+               "AnnualizedMaintenanceCost" = 1)
   })
 
   virtEnergyChoices <- reactiveValues(data = {
@@ -163,7 +168,8 @@ server <- function(input, output, session) {
     data.frame("Route" = character(),
                "HeadwayMins" = numeric(),
                "NumberTrips" = numeric(),
-               "TripLength" = numeric())
+               "TripMiles" = numeric(),
+               "TripMinutes" = numeric())
   })
 
   candLocMode <- reactiveVal(0)
@@ -254,6 +260,9 @@ server <- function(input, output, session) {
   cand.table <- reactiveValues(data = {
     NULL
   })
+  cost.pie <- reactiveValues(data = {
+    NULL
+  })
 
   observeEvent(input$readRoutes, {
     req(input$gtfsFile)
@@ -261,32 +270,61 @@ server <- function(input, output, session) {
     routeNames <- gtfsObj$routes$route_short_name
     virtTimeTable$data <- virtTimeTable$data[0,]
     for(i in 1:length(routeNames)) {
-      tempFrame <- data.frame("Route" = routeNames[i], "HeadwayMins" = 1, "NumberTrips" = 1, "TripLength" = 1)
+      tempFrame <- data.frame("Route" = routeNames[i], "FrequencyMins" = 1, "NumberTrips" = 1, "TripLength" = 1)
       virtTimeTable$data <- rbind(virtTimeTable$data, tempFrame)
     }
   })
 
   observeEvent(input$mapButton, {
     req(input$gtfsFile)
+    showNotification("Mapping...", type = "message")
     gtfsObj <- tidytransit::read_gtfs(input$gtfsFile$datapath)
-    cand.locs.tmp <- cand_loc_searcher(gtfsObj, verbose = FALSE, include.legend = FALSE, include.depots = FALSE)
+    cand.locs.tmp <- cand_loc_mode(gtfsObj, candLocMode(), input$oppChargers) #syn.network defaults to NULL, we will add that functionality later.
     cand.map$data <- cand.locs.tmp$map
     if(is.character(cand.map$data)) {
       showNotification(cand.map$data, type = "error")
       cand.map$data <- NULL
     }
     cand.table$data <- cand.locs.tmp$stops_table
-    output$testText <- renderText({"A Map command was detected."})
     showNotification("Complete!")
   })
 
   observeEvent(input$goButton, {
-    req(input$gtfsFile)
+    req(input$gtfsFile, cand.map$data)
+    showNotification("Calculating...", type = "message")
+    gtfsObj <- tidytransit::read_gtfs(input$gtfsFile$datapath)
+    energyIn <- switch(input$energySource,
+                       upload = read.csv(input$energyTable$datapath),
+                       generate = read.csv(input$energyTable$datapath),
+                       simple = virtEnergyChoices$data)
+    costsList <- suppressWarnings(calculateCost(gtfsObj = gtfsObj, operatingYears = input$operatingYears, energyCostKwh = input$energyCost, energyModeLabel = input$energySource,
+                                                timetableModeLabel = input$timeTableSrc, busTable = virtBusTable$data, energyTable = energyIn, routesTable = virtTimeTable$data,
+                                                oppChargers = nrow(cand.table$data), oppRate = input$oppRate, oppCost = input$oppCost, oppDuty = input$dutyRatio/100,
+                                                depotRate = input$depRate, depotCost = input$depCost))
+    minTotalCost <- Inf
+    for(i in 1:length(costsList)) {
+      thisBus <- names(costsList)[i]
+      thisTotalCost <- sum(costsList[[i]]$MaintenanceCost, costsList[[i]]$EnergyCost, costsList[[i]]$Infrastructure, costsList[[i]]$VehicleCost)
+      if(thisTotalCost < minTotalCost) {
+        minTotalCost <- thisTotalCost
+        minBusType <- thisBus
+        minIndex <- i
+      }
+    }
+    output$totalCostText <- renderText({paste("The bus type with the lowest cost was ", minBusType, ", with a total system cost of $", as.character(minTotalCost), ".", sep = "")})
+    output$captialCostText <- renderText({paste("The capital costs (vehicles and infrastructure) are $", sum(costsList[[minIndex]]$Infrastructure, costsList[[minIndex]]$VehicleCost), ".", sep = "")})
+    dataForPie <- costsList[[minIndex]]
+    cost.pie$data <- pie(c(costsList[[minIndex]]$MaintenanceCost, costsList[[minIndex]]$EnergyCost, costsList[[minIndex]]$Infrastructure, costsList[[minIndex]]$VehicleCost))
+
 
   })
 
   output$outputMap <- renderLeaflet({
     cand.map$data
+  })
+
+  output$costPie <- renderPlot({
+    cost.pie$data
   })
 
   output$timeTable <- renderDT({
@@ -297,7 +335,7 @@ server <- function(input, output, session) {
     req(!is.null(cand.table$data))
     tibble(cand.table$data) %>%
                      select(stop_id, occ, label, group) %>%
-                     rename("StopID" = stop_id, "TimesStopped" = occ, "StopLabel" = label, "ClusterNumber" = group)
+                     rename("Stop ID" = stop_id, "Times Stopped" = occ, "Stop Label" = label, "Cluster Number" = group)
   })
 
 }

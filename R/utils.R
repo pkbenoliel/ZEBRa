@@ -102,8 +102,14 @@ latlon_2_meter <- function(lat1, lon1, lat2, lon2) {
   return(output)
 }
 
+hms_to_time <- function(HMS.char) {
+  require(lubridate)
+  output <- hour(hms(HMS.char))*60 + minute(hms(HMS.char)) #seconds are negligible
+  return(output)
+}
+
 #' Get shapes spatial data for given route ids
-#' This function was originally part of the `gtfsr` package; the code was written by its authors:
+#' This function has strong basis in a similar function written by the authors of the `gtfsr` package:
 #'
 #' Elaine McVey (elaine.mcvey\@transloc.com)
 #' Danton Noriega-Goodwin (danton.noriega\@gmail.com)
