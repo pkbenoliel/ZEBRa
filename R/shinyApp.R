@@ -45,7 +45,7 @@ ui <- fluidPage(
                                    )),
                     textOutput("candLocWarn"),
                     tags$head(tags$style("#candLocWarn{color: red; font-style: italic")),
-                    numericInput("dutyRatio", "Select expected duty ratio of the opportunity chargers (%):", min = 10, max = 90, value = 60),
+                    numericInput("dutyRatio", "Select expected duty ratio of the opportunity chargers (%):", min = 10, max = 90, value = 25),
                     numericInput("oppCost", "Opportunity charger cost (thousand $USD):", value = 200, min = 0),
                     numericInput("depCost", "Depot charger cost (thousand $USD):", value = 60, min = 0),
                     numericInput("oppRate", "Rate of recharge for opportunity chargers (kW):", value = 350, min = 0),
