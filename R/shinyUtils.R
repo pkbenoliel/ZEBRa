@@ -77,6 +77,7 @@ calculateCost <- function(gtfsObj, operatingYears, energyCostKwh, energyModeLabe
     downTime <- 32 - operatingHours
     oppEnergy <- oppChargingHours * oppRate * oppChargers
     energyDeficit <- energyDemand - oppEnergy
+
     if(energyDeficit < 0) {
       energyDeficit <- 0
     }
@@ -135,8 +136,8 @@ calculateCost <- function(gtfsObj, operatingYears, energyCostKwh, energyModeLabe
     #Maintenance Costs are just pulled from table directly
     maintenanceCost <- as.numeric(busTable$AnnualizedMaintenanceCost[i]) * operatingYears
 
-    listEntry <- list("MaintenanceCost" = maintenanceCost, "EnergyCost" = energyCostTotal, "Infrastructure" = infrastructureCost, "Vehicles" = max(busesForEnergy, busesForTimetable),
-                      "VehicleCost" = vehicleCost, "DepotChargers" = depotChargers)
+    listEntry <- list("MaintenanceCost" = maintenanceCost, "EnergyCost" = energyCostTotal, "Infrastructure" = infrastructureCost,
+                      "Vehicles" = max(busesForEnergy, busesForTimetable), "VehicleCost" = vehicleCost, "DepotChargers" = depotChargers)
     costsList[[i]] <- listEntry
   }
   names(costsList) <- busTable$Label
@@ -169,6 +170,7 @@ energyCosts <- function(gtfsObj, energyCostKwh, energyModeLabel, timetableModeLa
   switch(energyMode,
          {
            #Mode 1: generated using Maps API (either in-situ or uploaded)
+
            switch(timetableMode,
                   {
                     # Mode 1: Read from GTFS
@@ -231,7 +233,12 @@ energyCosts <- function(gtfsObj, energyCostKwh, energyModeLabel, timetableModeLa
                   )
          }
          )
+
   return(energyCost)
+}
+
+renderDollars <- function(costValue) {
+  return(paste("$", formatC(costValue, format = "f", digits = 2, big.mark = ","), sep = ""))
 }
 
 calculateDiesel <- function(gtfsObj, operatingYears, energyCostKwh, energyMode, timetableMode, busTable, energyTable = NULL, routesTable = NULL) {

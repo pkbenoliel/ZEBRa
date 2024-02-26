@@ -26,6 +26,8 @@ ui <- fluidPage(
              ),
     tabPanel("Dashboard",
              column(6,
+                    actionButton("exampleButton", "Load Example Data"),
+                    textOutput("testText"),
                     fileInput("gtfsFile", "GTFS Feed", buttonLabel = "Upload Feed"),
                     numericInput("oppChargers", "How many opportunity chargers do you want to use?", value = 0, min = 0),
                     numericInput("operatingYears", "Number of years the bus is planned to operate:", value = 12, min = 1),
@@ -61,9 +63,13 @@ ui <- fluidPage(
              column(8,
                     tabsetPanel(
                       tabPanel("Map",
-                               leafletOutput("outputMap")),
+                               leafletOutput("outputMap")
+                               ),
                       tabPanel("List of Stops",
                                tableOutput("stopsList")
+                               ),
+                      tabPanel("Results Details",
+                               tableOutput("outputTable")
                                )
                       )
                     )
@@ -175,6 +181,11 @@ server <- function(input, output, session) {
   candLocMode <- reactiveVal(0)
   energyMode <- reactiveVal(0)
   routesMode <- reactiveVal(0)
+  exampleData <- reactiveVal(FALSE)
+
+  observeEvent(input$gtfsFile, {
+    exampleData(FALSE)
+  })
 
   observeEvent(input$candLocSpec, {
     if(input$candLocSpec == "mode1") {
@@ -263,6 +274,20 @@ server <- function(input, output, session) {
   cost.pie <- reactiveValues(data = {
     NULL
   })
+  output.table <- reactiveValues(data = {
+    NULL
+  })
+
+  observeEvent(input$exampleButton, {
+    exampleData(TRUE)
+    #Example Buses
+    exLabels <- c("35ft", "40ft", "60ft")
+    exCost <- c(180000, 230000, 460000)
+    exMass <- c(25000, 35000, 60000)
+    exKWH <- c(120, 180, 300)
+    exMaint <- c(5000, 5000, 5000)
+    virtBusTable$data <- data.frame("Label" = exLabels, "Cost" = exCost, "Mass" = exMass, "PackCapacity" = exKWH, "AnnualizedMaintenanceCost" = exMaint)
+  })
 
   observeEvent(input$readRoutes, {
     req(input$gtfsFile)
@@ -276,9 +301,20 @@ server <- function(input, output, session) {
   })
 
   observeEvent(input$mapButton, {
-    req(input$gtfsFile)
+    if(!exampleData()) {
+      req(input$gtfsFile)
+    }
+    output.table$data <- NULL
+    cost.pie$data <- NULL
+    output$totalCostText <- renderText(NULL)
+    output$capitalCostText <- renderText(NULL)
     showNotification("Mapping...", type = "message")
-    gtfsObj <- tidytransit::read_gtfs(input$gtfsFile$datapath)
+    if(!exampleData()) {
+      gtfsObj <- tidytransit::read_gtfs(input$gtfsFile$datapath)
+    } else {
+      #Static URL for Unitrans
+      gtfsObj <- tidytransit::read_gtfs("https://unitrans.ucdavis.edu/media/gtfs/Unitrans_GTFS.zip")
+    }
     cand.locs.tmp <- cand_loc_mode(gtfsObj, candLocMode(), input$oppChargers) #syn.network defaults to NULL, we will add that functionality later.
     cand.map$data <- cand.locs.tmp$map
     if(is.character(cand.map$data)) {
@@ -290,18 +326,34 @@ server <- function(input, output, session) {
   })
 
   observeEvent(input$goButton, {
-    req(input$gtfsFile, cand.map$data)
+    if(!exampleData()) {
+      req(input$gtfsFile)
+    }
+    req(cand.map$data)
     showNotification("Calculating...", type = "message")
-    gtfsObj <- tidytransit::read_gtfs(input$gtfsFile$datapath)
-    energyIn <- switch(input$energySource,
-                       upload = read.csv(input$energyTable$datapath),
-                       generate = read.csv(input$energyTable$datapath),
-                       simple = virtEnergyChoices$data)
+    if(!exampleData()) {
+      gtfsObj <- tidytransit::read_gtfs(input$gtfsFile$datapath)
+    } else {
+      #Static URL for Unitrans
+      gtfsObj <- tidytransit::read_gtfs("https://unitrans.ucdavis.edu/media/gtfs/Unitrans_GTFS.zip")
+    }
+    if(exampleData()) {
+      #static file location for energy data
+      energyIn <- read.csv("./Energy Tables/Unitrans Energy Table.csv")
+    } else {
+      energyIn <- switch(input$energySource,
+                         upload = read.csv(input$energyTable$datapath),
+                         generate = read.csv(input$energyTable$datapath),
+                         simple = virtEnergyChoices$data)
+    }
+
+
     costsList <- suppressWarnings(calculateCost(gtfsObj = gtfsObj, operatingYears = input$operatingYears, energyCostKwh = input$energyCost, energyModeLabel = input$energySource,
                                                 timetableModeLabel = input$timeTableSrc, busTable = virtBusTable$data, energyTable = energyIn, routesTable = virtTimeTable$data,
                                                 oppChargers = nrow(cand.table$data), oppRate = input$oppRate, oppCost = input$oppCost, oppDuty = input$dutyRatio/100,
                                                 depotRate = input$depRate, depotCost = input$depCost))
     minTotalCost <- Inf
+    outputTableHolder <- rep(list(NULL), length(costsList))
     for(i in 1:length(costsList)) {
       thisBus <- names(costsList)[i]
       thisTotalCost <- sum(costsList[[i]]$MaintenanceCost, costsList[[i]]$EnergyCost, costsList[[i]]$Infrastructure, costsList[[i]]$VehicleCost)
@@ -310,13 +362,38 @@ server <- function(input, output, session) {
         minBusType <- thisBus
         minIndex <- i
       }
+      varLabels <- c(names(costsList[[i]]), "OpportunityChargers")
+      outputValues <- character()
+      for(j in 1:length(costsList[[i]])) {
+        if(j %in% c(4, 6)) {
+          outputValues <- c(outputValues, as.character(costsList[[i]][[j]]))
+        } else {
+          outputValues <- c(outputValues, renderDollars(costsList[[i]][[j]]))
+        }
+      }
+      outputValues <- c(outputValues, nrow(cand.table$data))
+      thisDataFrame <- data.frame("Parameter" = varLabels, "Value" = outputValues)
+      outputTableHolder[[i]] <- thisDataFrame
     }
-    output$totalCostText <- renderText({paste("The bus type with the lowest cost was ", minBusType, ", with a total system cost of $", as.character(minTotalCost), ".", sep = "")})
-    output$captialCostText <- renderText({paste("The capital costs (vehicles and infrastructure) are $", sum(costsList[[minIndex]]$Infrastructure, costsList[[minIndex]]$VehicleCost), ".", sep = "")})
-    dataForPie <- costsList[[minIndex]]
-    cost.pie$data <- pie(c(costsList[[minIndex]]$MaintenanceCost, costsList[[minIndex]]$EnergyCost, costsList[[minIndex]]$Infrastructure, costsList[[minIndex]]$VehicleCost))
-
-
+    names(outputTableHolder) <- names(costsList)
+    output.table$data <- outputTableHolder
+    finalCost <- sum(costsList[[minIndex]]$Infrastructure, costsList[[minIndex]]$VehicleCost)
+    output$totalCostText <- renderText({paste("The bus type with the lowest cost was ", minBusType, ", with a total system cost of ", renderDollars(minTotalCost),
+                                              ".", sep = "")})
+    output$capitalCostText <- renderText({paste("The capital costs (vehicles and infrastructure) are ", renderDollars(finalCost), ".", sep = "")})
+    valuesForPie <- numeric()
+    for(i in 1:length(costsList)) {
+      valuesForPie <- c(valuesForPie, costsList[[minIndex]][[i]])
+    }
+    dataForPie <- data.frame("Costs" = names(costsList[[minIndex]]), "Values" = valuesForPie)
+    dataForPie <- dataForPie[dataForPie$Costs %in% c("MaintenanceCost", "EnergyCost", "Infrastructure", "VehicleCost"),]
+    dataForPie$Costs <- c("Maintenance Cost", "Energy Cost", "Infrastructure Cost", "Vehicle Cost")
+    cost.pie$data <- ggplot(data = dataForPie, aes(x = "", y = Values, fill = Costs)) +
+      geom_bar(stat = "identity", width = 1, color = "white") +
+      coord_polar("y", start = 0) +
+      ggtitle("Pie Chart of Costs") +
+      theme_void()
+    showNotification("Complete!")
   })
 
   output$outputMap <- renderLeaflet({
@@ -336,6 +413,14 @@ server <- function(input, output, session) {
     tibble(cand.table$data) %>%
                      select(stop_id, occ, label, group) %>%
                      rename("Stop ID" = stop_id, "Times Stopped" = occ, "Stop Label" = label, "Cluster Number" = group)
+  })
+
+  output$outputTable <- renderTable({
+    output.table$data
+  })
+
+  output$testText <- renderText({
+    paste("Example data is", as.character(exampleData()))
   })
 
 }
