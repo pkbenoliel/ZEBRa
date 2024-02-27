@@ -58,6 +58,7 @@ ui <- fluidPage(
              column(4,
                     textOutput("totalCostText"),
                     textOutput("capitalCostText"),
+                    textOutput("dieselCostText"),
                     plotOutput("costPie")
                     ),
              column(8,
@@ -172,7 +173,7 @@ server <- function(input, output, session) {
 
   virtTimeTable <- reactiveValues(data = {
     data.frame("Route" = character(),
-               "HeadwayMins" = numeric(),
+               "HeadwayMinutes" = numeric(),
                "NumberTrips" = numeric(),
                "TripMiles" = numeric(),
                "TripMinutes" = numeric())
@@ -280,6 +281,7 @@ server <- function(input, output, session) {
 
   observeEvent(input$exampleButton, {
     exampleData(TRUE)
+    gtfsObj <- tidytransit::read_gtfs("https://unitrans.ucdavis.edu/media/gtfs/Unitrans_GTFS.zip")
     #Example Buses
     exLabels <- c("35ft", "40ft", "60ft")
     exCost <- c(180000, 230000, 460000)
@@ -287,15 +289,45 @@ server <- function(input, output, session) {
     exKWH <- c(120, 180, 300)
     exMaint <- c(5000, 5000, 5000)
     virtBusTable$data <- data.frame("Label" = exLabels, "Cost" = exCost, "Mass" = exMass, "PackCapacity" = exKWH, "AnnualizedMaintenanceCost" = exMaint)
+    #Best guesses
+    virtEnergyChoices$data <- data.frame("Bus" = exLabels, "kWhPerMile" = c(2.5, 4, 8))
+    #Generate pseudo-random data for example simplified energy
+    listRoutes <- gtfsObj$routes$route_short_name
+    heads <- numeric()
+    trips <- numeric()
+    miles <- numeric()
+    minutes <- numeric()
+    for(route in listRoutes) {
+      thisHead <- round(runif(1, min = 10, max = 75))
+      #No more than 10 operating hours
+      thisTrip <- round(runif(1, min = 5, max = 600/thisHead))
+      thisMiles <- round(runif(1, min = 3, max = 24))
+      #Average speed no slower than 10 mph, no faster than 45 mph
+      thisMinutes <- round(runif(1, min = thisMiles*1.5, max = thisMiles*6))
+      heads <- c(heads, thisHead)
+      trips <- c(trips, thisTrip)
+      miles <- c(miles, thisMiles)
+      minutes <- c(minutes, thisMinutes)
+    }
+    virtTimeTable$data <- data.frame("Route" = listRoutes,
+                                     "HeadwayMinutes" = heads,
+                                     "NumberTrips" = trips,
+                                     "TripMiles" = miles,
+                                     "TripMinutes" = minutes)
   })
 
   observeEvent(input$readRoutes, {
-    req(input$gtfsFile)
-    gtfsObj <- tidytransit::read_gtfs(input$gtfsFile$datapath)
+    if(exampleData()) {
+      #Static URL for Unitrans
+      gtfsObj <- tidytransit::read_gtfs("https://unitrans.ucdavis.edu/media/gtfs/Unitrans_GTFS.zip")
+    } else {
+      req(input$gtfsFile)
+      gtfsObj <- tidytransit::read_gtfs(input$gtfsFile$datapath)
+    }
     routeNames <- gtfsObj$routes$route_short_name
     virtTimeTable$data <- virtTimeTable$data[0,]
     for(i in 1:length(routeNames)) {
-      tempFrame <- data.frame("Route" = routeNames[i], "FrequencyMins" = 1, "NumberTrips" = 1, "TripLength" = 1)
+      tempFrame <- data.frame("Route" = routeNames[i], "HeadwayMinutes" = 1, "NumberTrips" = 1, "TripMiles" = 1, "TripMinutes" = 1)
       virtTimeTable$data <- rbind(virtTimeTable$data, tempFrame)
     }
   })
@@ -339,14 +371,16 @@ server <- function(input, output, session) {
     }
     if(exampleData()) {
       #static file location for energy data
-      energyIn <- read.csv("./Energy Tables/Unitrans Energy Table.csv")
+      energyIn <- switch(input$energySource,
+                         upload = read.csv("./Energy Tables/Unitrans Energy Table.csv"),
+                         generate = read.csv("./Energy Tables/Unitrans Energy Table.csv"),
+                         simple = virtEnergyChoices$data)
     } else {
       energyIn <- switch(input$energySource,
                          upload = read.csv(input$energyTable$datapath),
                          generate = read.csv(input$energyTable$datapath),
                          simple = virtEnergyChoices$data)
     }
-
 
     costsList <- suppressWarnings(calculateCost(gtfsObj = gtfsObj, operatingYears = input$operatingYears, energyCostKwh = input$energyCost, energyModeLabel = input$energySource,
                                                 timetableModeLabel = input$timeTableSrc, busTable = virtBusTable$data, energyTable = energyIn, routesTable = virtTimeTable$data,
@@ -374,6 +408,7 @@ server <- function(input, output, session) {
       outputValues <- c(outputValues, nrow(cand.table$data))
       thisDataFrame <- data.frame("Parameter" = varLabels, "Value" = outputValues)
       outputTableHolder[[i]] <- thisDataFrame
+
     }
     names(outputTableHolder) <- names(costsList)
     output.table$data <- outputTableHolder
@@ -381,6 +416,12 @@ server <- function(input, output, session) {
     output$totalCostText <- renderText({paste("The bus type with the lowest cost was ", minBusType, ", with a total system cost of ", renderDollars(minTotalCost),
                                               ".", sep = "")})
     output$capitalCostText <- renderText({paste("The capital costs (vehicles and infrastructure) are ", renderDollars(finalCost), ".", sep = "")})
+    if(input$diesel != 0) {
+      bestEnergy <- costsList[[minIndex]]$EnergyCost/input$energyCost
+      dieselOut <- calculateDiesel(bestEnergy, diesel)
+      output$dieselCostText <- renderText({paste("It is estimated that the savings in fuel cost over the lifetime of the buses is between ", renderDollars(dieselOut[1]), " and ", renderDollars(dieselOut[2]), ".",
+        sep = "")})
+    }
     valuesForPie <- numeric()
     for(i in 1:length(costsList)) {
       valuesForPie <- c(valuesForPie, costsList[[minIndex]][[i]])

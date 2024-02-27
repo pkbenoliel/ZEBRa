@@ -62,7 +62,7 @@ calculateCost <- function(gtfsObj, operatingYears, energyCostKwh, energyModeLabe
       # Mode 2: simplified timetable
       operatingHours <- 0
       for(j in 1:nrow(routesTable)) {
-        thisRouteHours <- (routesTable$Headway[i]*(routesTable$NumberTrips[i]-1) + routesTable$TripMinuts[i])/60
+        thisRouteHours <- (routesTable$HeadwayMinutes[i]*(routesTable$NumberTrips[i]-1) + routesTable$TripMinutes[i])/60
         if(thisRouteHours > operatingHours) {
           operatingHours <- thisRouteHours
         }
@@ -77,7 +77,6 @@ calculateCost <- function(gtfsObj, operatingYears, energyCostKwh, energyModeLabe
     downTime <- 32 - operatingHours
     oppEnergy <- oppChargingHours * oppRate * oppChargers
     energyDeficit <- energyDemand - oppEnergy
-
     if(energyDeficit < 0) {
       energyDeficit <- 0
     }
@@ -126,8 +125,8 @@ calculateCost <- function(gtfsObj, operatingYears, energyCostKwh, energyModeLabe
     {
       #Mode 2: simplified timetable method - simply length divided by frequency (simplified method assumes trips are spread evenly throughout the day)
       busesForTimetable <- 0
-      for(i in 1:nrow(routesTable)) {
-        busesForTimetable <- busesForTimetable + ceiling(routesTable$TripLength[i]/routesTable$FrequencyMins[i])
+      for(index in 1:nrow(routesTable)) {
+        busesForTimetable <- busesForTimetable + ceiling(routesTable$TripMinutes[index]/routesTable$HeadwayMinutes[index])
       }
     })
     #For energy cost, there have to be enough batteries to cover the energy deficit + 30% (chosen arbitrarily)
@@ -195,7 +194,7 @@ energyCosts <- function(gtfsObj, energyCostKwh, energyModeLabel, timetableModeLa
                     for(route in routesTable$Route) {
                       numberTrips <- routesTable$NumberTrips[routesTable$Route == route]
                       routeEnergy <- energyTable$Electric_kWh[energyTable$route_short_name == gtfsObj$routes$route_short_name[gtfsObj$routes$route_short_name == route] & energyTable$bus_type == busLabel]
-                      energyDemand <- energyDemand + (numberTrips*routeEnergy)
+                      energyDemand <- energyDemand + (numberTrips*routeEnergy*routesTable$TripMiles[routesTable$Route == route])
                     }
                     energyCost <- energyDemand*energyCostKwh
                   }
@@ -226,7 +225,7 @@ energyCosts <- function(gtfsObj, energyCostKwh, energyModeLabel, timetableModeLa
                     for(route in routesTable$Route) {
                       numberTrips <- routesTable$NumberTrips[routesTable$Route == route]
                       routeEnergy <- energyTable$kWhPerMile[energyTable$Bus == busLabel]
-                      energyDemand <- energyDemand + (numberTrips*routeEnergy)
+                      energyDemand <- energyDemand + (numberTrips*routeEnergy*routesTable$TripMiles[routesTable$Route == route])
                     }
                     energyCost <- energyDemand*energyCostKwh
                   }
@@ -241,6 +240,11 @@ renderDollars <- function(costValue) {
   return(paste("$", formatC(costValue, format = "f", digits = 2, big.mark = ","), sep = ""))
 }
 
-calculateDiesel <- function(gtfsObj, operatingYears, energyCostKwh, energyMode, timetableMode, busTable, energyTable = NULL, routesTable = NULL) {
-
+calculateDiesel <- function(energyDemand, dieselCost) {
+  effLow <- 0.25
+  effHigh <- 0.4
+  kWhPerGallon <- 38.09 #for diesel
+  lowValue <- energyDemand/(kWhPerGallon * effLow)
+  highValue <- energyDemand/(kWhPerGallon * effHigh)
+  return(c(highValue, lowValue))
 }
