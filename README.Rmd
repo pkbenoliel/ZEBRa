@@ -10,7 +10,7 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-
+![Issues](https://https://img.shields.io/github/issues/pkbenoliel/ZEBRa)
 
 ## R Markdown
 

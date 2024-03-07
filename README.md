@@ -1,6 +1,12 @@
 Zero Emisson Bus Energy R analyzer (ZEBRa)
 ================
 
+<figure>
+<img src="https://https://img.shields.io/github/issues/pkbenoliel/ZEBRa"
+alt="Issues" />
+<figcaption aria-hidden="true">Issues</figcaption>
+</figure>
+
 ## R Markdown
 
 This is an R Markdown document. Markdown is a simple formatting syntax
