@@ -12,6 +12,8 @@ library(DT)
 library(reshape2)
 library(magrittr)
 library(sf)
+library(markdown)
+library(knitr)
 
 
 ## ----------------------|
@@ -22,12 +24,13 @@ ui <- fluidPage(
   shinyjs::useShinyjs(),
   titlePanel("ZEBRa-Lite"),
   tabsetPanel(
-    tabPanel("Instructions"
+    tabPanel("Instructions",
+             uiOutput("instructions")
              ),
     tabPanel("Dashboard",
              column(6,
                     actionButton("exampleButton", "Load Example Data"),
-                    textOutput("testText"),
+                    textOutput("exampleDataText"),
                     fileInput("gtfsFile", "GTFS Feed", buttonLabel = "Upload Feed"),
                     numericInput("oppChargers", "How many opportunity chargers do you want to use?", value = 0, min = 0),
                     numericInput("operatingYears", "Number of years the bus is planned to operate:", value = 12, min = 1),
@@ -35,7 +38,10 @@ ui <- fluidPage(
                     numericInput("diesel", "Cost per gallon of diesel ($USD) (optional):", value = 0, min = 0),
                     bsTooltip("energyCost", "A flat energy cost per kWh applied to the whole system. This value is used to calculate expected running costs.", "right", options = list(container = "body")),
                     actionButton("mapButton", "Draw Map"),
-                    actionButton("goButton", "Calculate")
+                    actionButton("goButton", "Calculate"),
+                    bsTooltip("gtfsFile", "Click here to load a GTFS file from your computer. Upload a .zip file containing all necessary GTFS data.", "left", options = list(container = "body")),
+                    bsTooltip("exampleButton", "Click here to load example data.", "right", options = list(container = "body")),
+                    bsTooltip("oppChargers", "Enter the number of chargers to be used.  Only active if the mode of 'Provide a charger to each route' is not selected.", "right", options = list(container = "body"))
                     ),
              column(6,
 
@@ -177,6 +183,10 @@ server <- function(input, output, session) {
                "NumberTrips" = numeric(),
                "TripMiles" = numeric(),
                "TripMinutes" = numeric())
+  })
+
+  output$instructions <- renderUI({
+    HTML(markdown::markdownToHTML(knit("ZEBRaLite/INSTRUCTION_TAB.Rmd", quiet = TRUE)))
   })
 
   candLocMode <- reactiveVal(0)
@@ -432,7 +442,9 @@ server <- function(input, output, session) {
     cost.pie$data <- ggplot(data = dataForPie, aes(x = "", y = Values, fill = Costs)) +
       geom_bar(stat = "identity", width = 1, color = "white") +
       coord_polar("y", start = 0) +
+      scale_fill_manual(values = c("#022851", "#768493", "#D0BA79", "#FFBF00"))
       ggtitle("Pie Chart of Costs") +
+
       theme_void()
     showNotification("Complete!")
   })
@@ -460,8 +472,13 @@ server <- function(input, output, session) {
     output.table$data
   })
 
-  output$testText <- renderText({
-    paste("Example data is", as.character(exampleData()))
+  output$exampleDataText <- renderText({
+    if(exampleData()){
+      stringToShow <- "Example data is LOADED."
+    } else {
+      stringToShow <- "Example data is UNLOADED"
+    }
+    stringToShow
   })
 
 }
