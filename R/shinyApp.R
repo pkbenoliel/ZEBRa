@@ -186,7 +186,8 @@ server <- function(input, output, session) {
   })
 
   output$instructions <- renderUI({
-    HTML(markdown::markdownToHTML(knit("ZEBRaLite/INSTRUCTION_TAB.Rmd", quiet = TRUE)))
+    #HTML(markdown::markdownToHTML(knit("ZEBRaLite/INSTRUCTION_TAB.Rmd", quiet = TRUE)))
+    NULL
   })
 
   candLocMode <- reactiveVal(0)

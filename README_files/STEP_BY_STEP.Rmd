@@ -1,0 +1,27 @@
+---
+title: "STEP_BY_STEP"
+author: "Peter Benoliel"
+date: "2024-06-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Loading Data
+
+1. Upload a GTFS feed to ZEBRa Lite using the "Import GTFS" button on the "Dashboard" Tab.
+3. Adjust the other values on the Dashboard to your desired values.
+3. Click the "Draw Map" button at the bottom of the panel to create the network map.  The map will appear in the "Results" Tab
+    + Verify that the map drawn appears correct.  The blue pins indicate the preferred locations of opportunity chargers.
+4. Using the "Bus Parameters", "Energy Tables", and "Timetable Information" tabs, add in the information about the vehicles and the network timetable, following the instructions for each tab.
+5. Click the "Calculate" button in the "Dashboard" tab.  ZEBRa Lite will begin calculating the expected cost of the network over its lifetime.
+    + For larger networks, calculation may take some time.  Wait for a message stating the calculation is complete to appear in the bottom-left corner of the app.
+6. Results will be displayed in the "Results" tab.  Adjusting parameters will require a new calculation run to display.
+    + The pie chart displays a high-level breakdown of cost components, considering the cost of purchasing new vehicles, the cost of purchasing charging infrastructure, the cost of maintaining the vehicles, and the total expected energy cost of the vehicles over their lifetime.
+    + The text above the pie chart describes the lowest cost vehicle type among those included in this analysis and describes the cost of the network in that scenario.
+    + Within the "Results" tab, the "Map" tab shows the map of the network with the selected opportunity charger locations displayed as blue pins.
+    + The "Detailed Results" tab shows a cost breakdown for each type of vehicle included in the analysis.
+    + The "List of Stops" tab shows a table with the locations and number of chargers at each stop.
