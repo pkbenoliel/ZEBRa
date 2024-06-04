@@ -186,8 +186,9 @@ server <- function(input, output, session) {
   })
 
   output$instructions <- renderUI({
-    #HTML(markdown::markdownToHTML(knit("ZEBRaLite/INSTRUCTION_TAB.Rmd", quiet = TRUE)))
-    NULL
+    tempInstructions <- file.path(tempdir(), "INSTRUCTION_TAB.md")
+    rmarkdown::render("ZEBRaLite/INSTRUCTION_TAB.Rmd", output_format = "md_document", output_file = tempInstructions, quiet = TRUE)
+    includeMarkdown(tempInstructions)
   })
 
   candLocMode <- reactiveVal(0)

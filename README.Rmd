@@ -14,7 +14,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ![Issues](https://img.shields.io/github/issues/pkbenoliel/ZEBRa)
 
 ## General Description
-This is the Zero Emission Bus Energy R analyzer, or ZEBRa for short. This is a package in R that
+This is the Zero Emission Bus Energy R analyzer, or ZEBRa for short. This is a package in R that makes use of 
 
 ## ZEBRa Lite
 
