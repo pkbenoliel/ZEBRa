@@ -17,5 +17,14 @@ knitr::opts_chunk$set(echo = TRUE)
 This is the Zero Emission Bus Energy R analyzer, or ZEBRa for short. This is a package in R that makes use of general transit feed specification (GTFS) data to assess the energy use of battery electric buses (BEBs) within a transit network and optimize the required charging infrastructure within that network, considering both the amount and location of opportunity chargers versus the range and cost of BEBs in the network.  This package was originally designed (in pieces) as part of a Ph.D thesis that was completed in 2022, and is presented in package form here for other researchers and those interested in the question of BEBs in transit networks to use in their own investigations.  This package contains 2 models: the first is the full ZEBRa model which relies on both R and the General Algebraic Modeling Langauge (GAMS).  The second is ZEBRa-Lite, a lightweight version of the model designed to run entirely within R and is described fully in a later section.
 
 ### ZEBRa Lite
-
 Included in this package is ZEBRa Lite.  ZEBRa Lite was built with [R Shiny](https://shiny.posit.co/) and was designed to perform basic scenario analyses on transit networks.  GTFS data is still required for shape files and stop locations, but the user is able to manually change 
+
+## Installation
+To install this package from Github, use the following code:
+
+```{r setup, include=TRUE, eval = FALSE}
+#install_packages("devtools") #make sure devtools is installed
+devtools::install_github("pkbenoliel/ZEBRa")
+```
+
+## Issues and Future Implementations

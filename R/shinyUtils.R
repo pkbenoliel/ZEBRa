@@ -135,8 +135,9 @@ calculateCost <- function(gtfsObj, operatingYears, energyCostKwh, energyModeLabe
     #Maintenance Costs are just pulled from table directly
     maintenanceCost <- as.numeric(busTable$AnnualizedMaintenanceCost[i]) * operatingYears
 
-    listEntry <- list("MaintenanceCost" = maintenanceCost, "EnergyCost" = energyCostTotal, "Infrastructure" = infrastructureCost,
-                      "Vehicles" = max(busesForEnergy, busesForTimetable), "VehicleCost" = vehicleCost, "DepotChargers" = depotChargers)
+    listEntry <- list("MaintenanceCost" = round(maintenanceCost, digits = -3), "EnergyCost" = round(energyCostTotal, digits = -3),
+                      "Infrastructure" = round(infrastructureCost, digits = -3), "Vehicles" = max(busesForEnergy, busesForTimetable),
+                      "VehicleCost" = round(vehicleCost, digits = -3), "DepotChargers" = depotChargers)
     costsList[[i]] <- listEntry
   }
   names(costsList) <- busTable$Label
