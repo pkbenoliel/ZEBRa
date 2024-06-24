@@ -266,8 +266,6 @@ ZEBRaLite <- function() {
           gtfsObj <- tidytransit::read_gtfs("https://unitrans.ucdavis.edu/media/gtfs/Unitrans_GTFS.zip")
         }
 
-        GTFS$data <- gtfsObj
-
         if(exampleData()) {
           #static file location for energy data
           energyIn <- switch(input$energySource,
