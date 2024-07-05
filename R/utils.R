@@ -305,3 +305,60 @@ prep_routes_for_map <- function(gtfs.obj, route_ids, service_ids, shape_ids, rou
   return(env)
 
 }
+
+#' Split GTFS Feed
+#'
+#' This function allows the user to split the GTFS feed by agency and saves the resulting feed for that agency
+#'
+#' @param gtfsFeed
+#' @param outputFilename
+#' @param agencyName
+#'
+#' @return
+#' @export
+#'
+#' @examples
+splitGTFSFeed <- function(gtfsFeed, outputFilename, agencyName, DEBUG = FALSE) {
+  targetAgency <- gtfsFeed$agency %>% dplyr::filter(agency_name == agencyName)
+  targetAgencyID <- targetAgency$agency_id
+  targetRoutes <- gtfsFeed$routes %>% dplyr::filter(agency_id == targetAgencyID)
+  targetTrips <- gtfsFeed$trips %>% dplyr::filter(route_id %in% targetRoutes$route_id)
+  targetStopTimes <- gtfsFeed$stop_times %>% dplyr::filter(trip_id %in% targetTrips$trip_id)
+  targetStops <- gtfsFeed$stops %>% dplyr::filter(stop_id %in% targetStopTimes$stop_id)
+  newGTFS <- list(
+    agency = targetAgency,
+    routes = targetRoutes,
+    trips = targetTrips,
+    stop_times = targetStopTimes,
+    stops = targetStops
+  )
+
+  optionalFiles <- c("calendar", "calendar_dates", "shapes", "frequencies", "feed_info")
+  for (file in optionalFiles) {
+    if (file %in% names(gtfsFeed)) {
+      switch(file,
+             calendar = {
+               newGTFS[[file]] <- gtfsFeed$calendar
+             },
+             calendar_dates = {
+               newGTFS[[file]] <- gtfsFeed$calendar_dates
+             },
+             shapes = {
+               targetShapes <- gtfsFeed$shapes %>% dplyr::filter(shape_id %in% targetTrips$shape_id)
+               newGTFS[[file]] <- targetShapes
+             },
+             frequencies = {
+               targetFreqs <- gtfsFeed$frequencies %>% dplyr::filter(trip_id %in% targetTrips$trip_id)
+               newGTFS[[file]] <- targetFreqs
+             },
+             feed_info = {
+               newGTFS[[file]] <- gtfsFeed$feed_info
+             }
+            )
+      }
+    }
+
+  tidytransit::write_gtfs(tidytransit::as_tidygtfs(newGTFS), outputFilename)
+  return(0)
+
+}

@@ -47,6 +47,7 @@ scratchpad.R
 
 # Local files created for testing purposes
 /GTFS\ Local\ Data/*
+/TestData/*
 /Energy\ Tables/*
 /Results/*
 /LocalSaves/*
